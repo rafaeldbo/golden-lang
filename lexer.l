@@ -69,15 +69,15 @@ IDENTIFIER  {LETTER}({LETTER}|{DIGIT}|"_")*
 "required"  { return REQUIRED; }
 "validator" { return VALIDATOR; }
 
-{NUMBER_VAL}  { printf("number: %f\n", atof(yytext)); yylval.number = atof(yytext);   return NUMBER; }
+{NUMBER_VAL}  { yylval.number = atof(yytext);   return NUMBER; }
 
-["][0-9][0-9][:][0-9][0-9]["] { printf("time: %s\n", strdup(yytext)); yylval.string = strdup(yytext); return TIME; }
-["][0-9][0-9][0-9][0-9][-](1[0-2]|0[0-9])[-]([0-2][0-9]|3[0-1])["] { printf("date: %s\n", strdup(yytext)); yylval.string = strdup(yytext); return DATE; }
+["][0-9][0-9][:][0-9][0-9]["] { yylval.string = strdup(yytext); return TIME; }
+["][0-9][0-9][0-9][0-9][-](1[0-2]|0[0-9])[-]([0-2][0-9]|3[0-1])["] { yylval.string = strdup(yytext); return DATE; }
 
-{STRING_VAL} { printf("string: %s\n", strdup(yytext)); yylval.string = strdup(yytext); return STRING; }
+{STRING_VAL} { yylval.string = strdup(yytext); return STRING; }
 
 
-{IDENTIFIER} { printf("identifier: %s\n", strdup(yytext)); yylval.string = strdup(yytext); return IDENTIFIER; }
+{IDENTIFIER} { yylval.string = strdup(yytext); return IDENTIFIER; }
 
 \/\/[^\n]*  { /* Ignorar comentários  */ }
 [ \t\r]+    { /* Ignorar espaços */ }
