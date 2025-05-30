@@ -6,6 +6,13 @@ O projeto consiste em uma Linguagem de programação voltada para a construção
 
 A linguagem será estruturada com uma sintaxe simples, mas completa o suficiente para permitir a criação de formulários complexos. A linguagem compiará diretamente para HTML+JS, permitindo que os formulários sejam utilizados em qualquer navegador moderno.
 
+## Compilando Flex e Bison
+```bash
+flex lexer.l          
+bison -d parser.y     
+gcc -o parser parser.tab.c lex.yy.c -lfl 
+./parser
+
 ## EBNF
 ```ebnf
 (* Estruturas de Básicas *)
@@ -63,8 +70,7 @@ FIELD_STATEMENT = (
     ( "description", "=", STRING ) | 
     ( "default", "=", ( NUMBER | STRING | BOOLEAN | DATE | TIME ) ) | 
     ( "options", "=", "[", { STRING }, "]" ) |
-    ( "on_change_validator", CODE_BLOCK ) |
-    ( "on_submit_validator", CODE_BLOCK ) 
+    ( "validator", CODE_BLOCK )  
 ), ";" ;
 FORM = "Form", IDENTIFIER , "{" { FIELD }, "}", "\n" ;
 
@@ -75,60 +81,59 @@ MASTER_BLOCK = { ( CODE_STATEMENT | FORM ) } ;
 ## Exemplo de Código
 ```golden-lang
 Form apresentacao {
-    Field nome: Text {
-        required;
-        placeholder = "Digite seu nome";
-        title = "Nome";
-        description = "Digite seu nome completo";
+    Field nome String {
+        required
+        placeholder = "Digite seu nome"
+        title = "Nome"
+        description = "Digite seu nome completo"
     }
-    Field idade: Number {
-        required;
-        placeholder = "Digite sua idade";
-        title = "Idade";
-        description = "Digite sua idade em anos";
+    Field idade Number {
+        required
+        placeholder = "Digite sua idade"
+        title = "Idade"
+        description = "Digite sua idade em anos"
     }
-    Field genero: Select {
-        required;
-        placeholder = "Selecione seu gênero";
-        title = "Gênero";
-        description = "Selecione seu gênero";
-        options = ["Masculino", "Feminino", "Outro"];
+    Field genero Select {
+        required
+        placeholder = "Selecione seu gênero"
+        title = "Gênero"
+        description = "Selecione seu gênero"
+        options = [
+            "Masculino", 
+            "Feminino", 
+            "Outro"
+        ]
     }
-    Field data_nascimento: Date {
-        required;
-        placeholder = "Digite sua data de nascimento";
-        title = "Data de Nascimento";
-        description = "Qual é sua data de nascimento? Responda no formato YYYY-MM-DD";
+    Field data_nascimento Date {
+        required
+        placeholder = "Digite sua data de nascimento"
+        title = "Data de Nascimento"
+        description = "Qual é sua data de nascimento? Responda no formato YYYY-MM-DD"
     }
-    Field hora_almoco: Hour {
-        required;
-        placeholder = "Digite a sua hora de almoço";
-        title = "Hora do almoço";
-        description = "A que horas você costuma almoçar? Responda no formato: HH:MM";
+    Field hora_almoco Time {
+        required
+        placeholder = "Digite a sua hora de almoço"
+        title = "Hora do almoço"
+        description = "A que horas você costuma almoçar? Responda no formato: HH:MM"
     }
-    Field curiosidade: Text {
-        placeholder = "Digite uma curiosidade sobre você";
-        title = "Curiosidade";
-        description = "Fale uma coisa interessante sobre você, algo que ninguém sabe!";
+    Field curiosidade String {
+        placeholder = "Digite uma curiosidade sobre você"
+        title = "Curiosidade"
+        description = "Fale uma coisa interessante sobre você, algo que ninguém sabe!"
+    }
+    validator {
+        if (idade < 0) then {
+            on[PAGE]display("idade inválida")
+            cancel
+        } else if (hora_almoco < "07:00" or hora_almoco > "18:00") then {
+            on[PAGE]display("hora de almoço inválida")
+            cancel
+        } else if (data_nascimento < "1900-01-01") then {
+            on[PAGE]display("data de nascimento inválida")
+            cancel
+        } else {
+            on[PAGE]display("prazer em conhece-lo(a) " + nome)
+            submit
+        }
     }
 }
-
-Form prato_comida {
-    Field prato: Text {
-        required;
-        placeholder = "Digite o nome do prato";
-        title = "Prato";
-        description = "Qual prato você está com vontate de comer?";
-    }
-}
-
-var x: Number = 10
-vat i: Number = 0
-on[PAGE]display("Quem é você? Se apresente!")
-render(presentacao)
-on[PAGE]display("Quais pratos você gostaria de comer? Nos diga 10!")
-while i < 10 repeat {
-    i = i + 1
-    on[PAGE]display(i + "º prato")
-    render(prato_comida)
-}>

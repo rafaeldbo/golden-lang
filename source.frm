@@ -46,10 +46,12 @@ Form apresentacao {
         } else if (hora_almoco < "07:00" or hora_almoco > "18:00") then {
             on[PAGE]display("hora de almoço inválida")
             cancel
+        } else if (data_nascimento < "1900-01-01") then {
+            on[PAGE]display("data de nascimento inválida")
+            cancel
         } else {
             on[PAGE]display("prazer em conhece-lo(a) " + nome)
             submit
         }
-        
     }
 }
