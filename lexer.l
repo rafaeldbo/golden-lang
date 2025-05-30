@@ -72,7 +72,7 @@ IDENTIFIER  {LETTER}({LETTER}|{DIGIT}|"_")*
 {NUMBER_VAL}  { printf("number: %f\n", atof(yytext)); yylval.number = atof(yytext);   return NUMBER; }
 
 ["][0-9][0-9][:][0-9][0-9]["] { printf("time: %s\n", strdup(yytext)); yylval.string = strdup(yytext); return TIME; }
-["][0-9][0-9][0-9][0-9][-][0-9][0-9][-][0-9][0-9]["] { printf("date: %s\n", strdup(yytext)); yylval.string = strdup(yytext); return DATE; }
+["][0-9][0-9][0-9][0-9][-](1[0-2]|0[0-9])[-]([0-2][0-9]|3[0-1])["] { printf("date: %s\n", strdup(yytext)); yylval.string = strdup(yytext); return DATE; }
 
 {STRING_VAL} { printf("string: %s\n", strdup(yytext)); yylval.string = strdup(yytext); return STRING; }
 

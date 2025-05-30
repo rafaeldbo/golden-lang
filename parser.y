@@ -2,10 +2,59 @@
     #include <stdio.h>
     #include <stdlib.h>
     #include <string.h>
-    
+
     void yyerror(const char *s);
     int yylex();
     extern FILE *yyin;  // Permite leitura de arquivo no Flex
+
+    // Estrutura de nó da AST
+    typedef struct ASTNode {
+        char *type;
+        char *value;
+        struct ASTNode **children;
+        int child_count;
+    } ASTNode;
+
+    ASTNode *create_node(const char *type, const char *value) {
+        ASTNode *node = (ASTNode *)malloc(sizeof(ASTNode));
+        node->type = strdup(type);
+        node->value = value ? strdup(value) : NULL;
+        node->children = NULL;
+        node->child_count = 0;
+        return node;
+    }
+
+    void add_child(ASTNode *parent, ASTNode *child) {
+        parent->children = (ASTNode**)realloc(parent->children, sizeof(ASTNode*) * (parent->child_count + 1));
+        parent->children[parent->child_count++] = child;
+    }
+
+    void print_ast_json(ASTNode *node) {
+        if (!node) {
+            printf("null");
+            return;
+        }
+
+        printf("{ \"type\": \"%s\"", node->type);
+        if (node->value) printf(", \"value\": \"%s\"", node->value);
+
+        if (node->child_count > 0 && node->children) {
+            printf(", \"children\": [");
+            for (int i = 0; i < node->child_count; i++) {
+                if (node->children[i]) {
+                    print_ast_json(node->children[i]);
+                } else {
+                    printf("null");
+                }
+                if (i < node->child_count - 1) printf(", ");
+            }
+            printf("]");
+        }
+        printf("}");
+    }
+
+
+    ASTNode *ast_root = NULL;  // Raiz da AST
 %}
 
 %define parse.error verbose  // Mensagens de erro detalhadas
@@ -16,6 +65,7 @@
     int number;
     char* string;
     int boolean;
+    struct ASTNode* ast_node;  // Adicionando ASTNode* ao union
 }
 
 %token NUMBER STRING TIME DATE IDENTIFIER BOOLEAN
@@ -32,31 +82,34 @@
 
 %type <number> NUMBER
 %type <string> STRING TIME DATE IDENTIFIER
+%type <boolean> BOOLEAN
+
+%type <ast_node> program block statement_list statement boolean_expression else_clause
 
 %start program
 
 %%
 
 program:
-    statement_list
+    statement_list { ast_root = create_node("block", NULL); add_child(ast_root, $1); }
     ;
 
 block:
-    OPEN_BRK NEWLINE statement_list CLOSE_BRK
+    OPEN_BRK NEWLINE statement_list CLOSE_BRK { $$ = create_node("block", NULL); add_child($$, $3); }
     ;
 
 statement_list:
-    /* vazio */
-    | NEWLINE statement_list
-    | statement NEWLINE statement_list 
-    | statement YYEOF
+    /* vazio */ { $$ = create_node("statement_list", NULL); }
+    | NEWLINE statement_list { $$ = $2; }
+    | statement NEWLINE statement_list { $$ = $3; add_child($$, $1); }
+    | statement YYEOF { $$ = create_node("statement_list", NULL); add_child($$, $1); }
     ;
 
 statement:
-      IF boolean_expression THEN block
-    | IF boolean_expression THEN block else_clause
-    | WHILE boolean_expression REPEAT block
-    | type IDENTIFIER ASSIGN boolean_expression
+      IF boolean_expression THEN block { $$ = create_node("if_statement", NULL); add_child($$, $2); add_child($$, $4); }
+    | IF boolean_expression THEN block else_clause { $$ = create_node("if_statement", NULL); add_child($$, $2); add_child($$, $4); add_child($$, $5); }
+    | WHILE boolean_expression REPEAT block { $$ = create_node("while_statement", NULL); add_child($$, $2); add_child($$, $4); }
+    | type IDENTIFIER ASSIGN boolean_expression { $$ = create_node("assignment", $2); add_child($$, $4); }
     | type IDENTIFIER
     | IDENTIFIER ASSIGN boolean_expression
     | FORM IDENTIFIER OPEN_BRK form_statement_list CLOSE_BRK
@@ -181,9 +234,10 @@ int main(int argc, char *argv[]) {
     yyin = arquivo;
 
     // Executa o parser
-    if (yyparse() == 0)
+    if (yyparse() == 0) {
         printf("Análise sintática concluída com sucesso.\n");
-
+        print_ast_json(ast_root);  // Imprime a AST gerada
+    }
 
     fclose(arquivo);
     return 0;
