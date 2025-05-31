@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Union, List, Tuple
 
 from symbol_table import SymbolTable
+from symbol_types import Symbol, Date, Time
 
 NUMBER = "number"
 STRING = "string"
@@ -22,7 +23,7 @@ class Node(ABC):
         self.children = children
     
     @abstractmethod
-    def evaluate(self, st:SymbolTable) -> Union[Tuple[str, Union[float, str, bool]], None]:
+    def evaluate(self, st:SymbolTable) -> Union[Symbol, None]:
         pass
 
 
@@ -38,102 +39,102 @@ class BinOp(Node):
     def __init__(self, operation:str, left:Node, right:Node):
         super().__init__(operation, left, right)
     
-    def evaluate(self, st:SymbolTable) -> Tuple[str, Union[float, str, bool]]:
+    def evaluate(self, st:SymbolTable) -> Symbol:
         left = self.children[0].evaluate(st)
         right = self.children[1].evaluate(st)
-        if left[0] == STRING or right[0] == STRING:
-            if self.value == "plus":
-                return (STRING, left[1] + right[1])
         
-        if left[0] != right[0]:
-            raise EvaluationException(f"Invalid binary operation: both operands must be of the same type, impossible to do '{left[0]}' {self.value} '{right[0]}'")
+        if left is None or right is None:
+            raise EvaluationException("Cannot evaluate binary operation with None value")
         
-        if self.value == "equal":
-            return (BOOLEAN, left[1] == right[1])
+        elif self.value == "equal":
+            return left == right
         elif self.value == "greater":
-            return (BOOLEAN, left[1] > right[1])
+            return left > right
         elif self.value == "less":
-            return (BOOLEAN, left[1] < right[1])
+            return left < right
+              
+        elif self.value == "plus":
+            return left + right 
+        elif self.value == "minus":
+            return left - right
+        elif self.value == "mult":
+            return left * right
+        elif self.value == "div":
+            return left / right
+            
+        elif self.value == "and":
+            return left and right
+        elif self.value == "or":
+            return left or right
         
-        if left[0] == NUMBER:
-            if self.value == "plus":
-                return (NUMBER, left[1] + right[1])
-            elif self.value == "minus":
-                return (NUMBER, left[1] - right[1])
-            elif self.value == "mult":
-                return (NUMBER, left[1] * right[1])
-            elif self.value == "div":
-                return (NUMBER, left[1] // right[1])
-            
-        if left[0] == BOOLEAN:
-            if self.value == "and":
-                return (BOOLEAN, left[1] and right[1])
-            elif self.value == "or":
-                return (BOOLEAN, left[1] or right[1])
-            
-        raise EvaluationException(f"Invalid binary operation: cannot operate '{left[0]}' {self.value} '{right[0]}'")
+        else:
+            raise EvaluationException(f"Unknown binary operation: {self.value} with {left} and {right}")
     
 class UnOp(Node):
     def __init__(self, operation:str, unary:Node):
         super().__init__(operation, unary)
         
     def evaluate(self, st:SymbolTable) -> float:
-        child = self.children[0].evaluate(st)
+        unary = self.children[0].evaluate(st)
         
-        if child[0] == NUMBER and self.value == "minus":
-            return (NUMBER, -child[1])
-        elif child[0] == BOOLEAN and self.value == "not":
-            return (BOOLEAN, not child[1])
+        if unary is None:
+            raise EvaluationException("Cannot evaluate unary operation with None value")
         
-        raise EvaluationException(f"Invalid unary operation: {self.value}{child[1]}, cannot do '{self.value}' in '{child[0]}'")
+        elif self.value == "not":
+            return not unary
+        elif self.value == "minus":
+            return -unary
+        
+        else:
+            raise EvaluationException(f"Unknown unary operation: {self.value} with {unary}")
     
 class NumberValue(Node):
     def __init__(self, value:str, *void:Tuple[Node]):
         super().__init__(value)
     
     def evaluate(self, st:SymbolTable) -> Tuple[str, float]:
-        return (NUMBER, self.value)
+        return Symbol(NUMBER, float(self.value))
     
 class StringValue(Node):
     def __init__(self, value:str, *void:Tuple[Node]):
         super().__init__(value)
     
     def evaluate(self, st:SymbolTable) -> Tuple[str, str]:
-        return (STRING, self.value)
+        return Symbol(STRING, self.value)
     
 class BooleanValue(Node):
     def __init__(self, value:str, *void:Tuple[Node]):
         super().__init__(value)
     
     def evaluate(self, st:SymbolTable) -> Tuple[str, bool]:
-        return (BOOLEAN, self.value)
+        return Symbol(BOOLEAN, self.value.lower() == "true")
     
 class DateValue(Node):
     def __init__(self, value:str, *void:Tuple[Node]):
         super().__init__(value)
     
     def evaluate(self, st:SymbolTable) -> Tuple[str, str]:
-        return (DATE, self.value)
+        return Symbol("date", Date(self.value))
     
 class TimeValue(Node):
     def __init__(self, value:str, *void:Tuple[Node]):
         super().__init__(value)
     
     def evaluate(self, st:SymbolTable) -> Tuple[str, str]:
-        return (TIME, self.value)
+        return Symbol(TIME, Time(self.value))
     
 class ListValue(Node):
     def __init__(self, void, values:Tuple[Node]):
         super().__init__("list", values)
     
-    def evaluate(self, st:SymbolTable) -> Tuple[str, List[Union[float, str, bool]]]:
+    def evaluate(self, st:SymbolTable) -> Tuple[str, List[Symbol]]:
         return (LIST, [child.evaluate(st)[1] for child in self.children])
     
 class Identifier(Node):
     def __init__(self, identifier:str, *void:Tuple[Node]):
         super().__init__(identifier)
     
-    def evaluate(self, st:SymbolTable) -> Union[float, str, bool]:
+    def evaluate(self, st:SymbolTable) -> Symbol:
         return st.getter(self.value)
 
 class Variable(Node):
@@ -155,42 +156,35 @@ class Block(Node):
         super().__init__("block", *statements)
     
     def evaluate(self, st:SymbolTable) -> None:
-        for child in self.children:
-            child.evaluate(st)
+        for statement in self.children:
+            statement.evaluate(st)
 
 class Display(Node):
     def __init__(self, void, identifier:Node, printable_expression:Node):
         super().__init__("display", identifier, printable_expression)
     
     def evaluate(self, st:SymbolTable) -> None:
-        print(f"on {self.children[0].value}:", self.children[1].evaluate(st)[1])
+        print(f"on {self.children[0].value}:", self.children[1].evaluate(st))
     
     
 class IfOp(Node):
     def __init__(self, void, condition:Node, if_block:Node, else_block:Node=None):
         super().__init__("if", condition, if_block, else_block)
     
-    def evaluate(self, st:SymbolTable) -> Tuple[str, Union[float, str, bool]]:
-        child = self.children[0].evaluate(st)
-        if child[0] != BOOLEAN:
-            raise EvaluationException(f"Invalid condition: expected 'bool', got '{child[0]}'")
-        
-        if child[1]:
-            return self.children[1].evaluate(st)
-            
+    def evaluate(self, st:SymbolTable) -> Symbol:
+        condition = self.children[0].evaluate(st)
+
+        if condition:
+            self.children[1].evaluate(st)
         elif self.children[2] is not None:
-            return self.children[2].evaluate(st)
+            self.children[2].evaluate(st)
     
 class WhileOp(Node):
     def __init__(self, void, condition:Node, block:Node):
         super().__init__("while", condition, block)
     
-    def evaluate(self, st:SymbolTable) -> Tuple[str, Union[float, str, bool]]:
-        child = self.children[0].evaluate(st)
-        if child[0] != BOOLEAN:
-            raise EvaluationException(f"Invalid condition: expected 'bool', got '{child[0]}'")
-        while child[1]:
-            return_value = self.children[1].evaluate(st)
-            if return_value is not None:
-                return return_value
-            child = self.children[0].evaluate(st)
+    def evaluate(self, st:SymbolTable) -> Symbol:
+        condition = self.children[0].evaluate(st)
+        while condition:
+            self.children[1].evaluate(st)
+            condition = self.children[0].evaluate(st)
