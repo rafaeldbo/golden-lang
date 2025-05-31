@@ -178,7 +178,7 @@ statement_list:
 
 statement:
       type IDENTIFIER { Node *node = create_node("variable", $1); add_child(node, create_node("identifier", $2)); add_child(current_scope, node); }
-    | type IDENTIFIER ASSIGN boolean_expression { Node *node = create_node("variable", $1); add_child(node, create_node("indentifier", $2)); add_child(node, $4); add_child(current_scope, node); }
+    | type IDENTIFIER ASSIGN boolean_expression { Node *node = create_node("variable", $1); add_child(node, create_node("identifier", $2)); add_child(node, $4); add_child(current_scope, node); }
     | IDENTIFIER ASSIGN boolean_expression { Node *node = create_node("assignment"); add_child(node, create_node("identifier", $1)); add_child(node, $3); add_child(current_scope, node); }
     | IF boolean_expression THEN block { Node *node = create_node("if"); add_child(node, $2); add_child(node, $4); add_child(current_scope, node); }
     | IF boolean_expression THEN block else_clause { Node *node = create_node("if"); add_child(node, $2); add_child(node, $4); add_child(node, $5); add_child(current_scope, node); }
