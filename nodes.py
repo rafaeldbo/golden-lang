@@ -2,14 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Union, List, Tuple
 
 from symbol_table import SymbolTable
-from symbol_types import Symbol, Date, Time
-
-NUMBER = "number"
-STRING = "string"
-BOOLEAN = "boolean"
-DATE = "date"
-TIME = "time"
-LIST = "list"
+from symbol_types import Symbol, Date, Time, NUMBER, STRING, BOOLEAN, LIST, DATE, TIME
 
 class EvaluationException(Exception):
     pass
@@ -69,7 +62,7 @@ class BinOp(Node):
         
         else:
             raise EvaluationException(f"Unknown binary operation: {self.value} with {left} and {right}")
-    
+
 class UnOp(Node):
     def __init__(self, operation:str, unary:Node):
         super().__init__(operation, unary)
@@ -81,7 +74,7 @@ class UnOp(Node):
             raise EvaluationException("Cannot evaluate unary operation with None value")
         
         elif self.value == "not":
-            return not unary
+            return Symbol(BOOLEAN, not unary)
         elif self.value == "minus":
             return -unary
         
@@ -114,7 +107,7 @@ class DateValue(Node):
         super().__init__(value)
     
     def evaluate(self, st:SymbolTable) -> Tuple[str, str]:
-        return Symbol("date", Date(self.value))
+        return Symbol(DATE, Date(self.value))
     
 class TimeValue(Node):
     def __init__(self, value:str, *void:Tuple[Node]):
@@ -125,7 +118,7 @@ class TimeValue(Node):
     
 class ListValue(Node):
     def __init__(self, void, values:Tuple[Node]):
-        super().__init__("list", values)
+        super().__init__(DATE, values)
     
     def evaluate(self, st:SymbolTable) -> Tuple[str, List[Symbol]]:
         return (LIST, [child.evaluate(st)[1] for child in self.children])
@@ -164,7 +157,10 @@ class Display(Node):
         super().__init__("display", identifier, printable_expression)
     
     def evaluate(self, st:SymbolTable) -> None:
-        print(f"on {self.children[0].value}:", self.children[1].evaluate(st))
+        on = self.children[0].evaluate(st)
+        if on.type not in ["form", "page", "field"]:
+            raise EvaluationException(f"Display operation can only be performed on 'PAGE', form variable or field variable, not {on.type}")
+        self.children[1].evaluate(st)
     
     
 class IfOp(Node):
@@ -173,11 +169,10 @@ class IfOp(Node):
     
     def evaluate(self, st:SymbolTable) -> Symbol:
         condition = self.children[0].evaluate(st)
-
-        if condition:
-            self.children[1].evaluate(st)
-        elif self.children[2] is not None:
-            self.children[2].evaluate(st)
+        if condition.type != BOOLEAN:
+            raise EvaluationException("If condition must be a boolean value")
+        self.children[1].evaluate(st)
+        self.children[2].evaluate(st)
     
 class WhileOp(Node):
     def __init__(self, void, condition:Node, block:Node):
@@ -185,6 +180,6 @@ class WhileOp(Node):
     
     def evaluate(self, st:SymbolTable) -> Symbol:
         condition = self.children[0].evaluate(st)
-        while condition:
-            self.children[1].evaluate(st)
-            condition = self.children[0].evaluate(st)
+        if condition.type != BOOLEAN:
+            raise EvaluationException("While condition must be a boolean value")
+        self.children[1].evaluate(st)

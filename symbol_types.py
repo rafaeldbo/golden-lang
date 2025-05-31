@@ -1,6 +1,13 @@
 from typing import Union, Tuple
 from datetime import datetime, date, time, timedelta
 
+NUMBER = "number"
+STRING = "string"
+BOOLEAN = "boolean"
+DATE = "date"
+TIME = "time"
+LIST = "list"
+
 class Date:
     value: date
     
@@ -139,46 +146,46 @@ class Symbol:
     
     def __eq__(self, other: 'Symbol') -> bool:
         self.__type_check(other)
-        return Symbol("boolean", self.value == other.value)
+        return Symbol(BOOLEAN, self.value == other.value)
     
     def __ne__(self, other: 'Symbol') -> bool:
         self.type_check(other)
-        return Symbol("boolean", self.value != other.value)
+        return Symbol(BOOLEAN, self.value != other.value)
     
     def __gt__(self, other: 'Symbol') -> bool:
         self.__type_check(other)
-        return Symbol("boolean", self.value > other.value)
+        return Symbol(BOOLEAN, self.value > other.value)
     
     def __lt__(self, other: 'Symbol') -> bool:
         self.__type_check(other)
-        return Symbol("boolean", self.value < other.value)
+        return Symbol(BOOLEAN, self.value < other.value)
     
     def __ge__(self, other: 'Symbol') -> bool:
         self.__type_check(other)
-        return Symbol("boolean", self.value >= other.value)
+        return Symbol(BOOLEAN, self.value >= other.value)
     
     def __le__(self, other: 'Symbol') -> bool:
         self.__type_check(other)
-        return Symbol("boolean", self.value <= other.value)
+        return Symbol(BOOLEAN, self.value <= other.value)
     
     def __add__(self, other: 'Symbol') -> 'Symbol':
         if not isinstance(other, Symbol):
             raise TypeError(f"Expected Symbol, got {type(other)}")
         
-        elif self.type == "string" or other.type == "string":
-            return Symbol("string", str(self.value) + str(other.value))
+        elif self.type == STRING or other.type == STRING:
+            return Symbol(STRING, str(self.value) + str(other.value))
         
-        elif (self.type == "date" and other.type == "number"):
-            return Symbol("date", self.value + other.value) 
-        elif (self.type == "number" and other.type == "date"):
-            return Symbol("date", other.value + self.value)
+        elif (self.type == DATE and other.type == NUMBER):
+            return Symbol(DATE, self.value + other.value) 
+        elif (self.type == NUMBER and other.type == DATE):
+            return Symbol(DATE, other.value + self.value)
         
-        elif (self.type == "time" and other.type == "number"):
-            return Symbol("time", self.value + other.value)
-        elif (self.type == "number" and other.type == "time"):
-            return Symbol("time", other.value + self.value)
+        elif (self.type == TIME and other.type == NUMBER):
+            return Symbol(TIME, self.value + other.value)
+        elif (self.type == NUMBER and other.type == TIME):
+            return Symbol(TIME, other.value + self.value)
         
-        elif self.type != other.type and self.type not in ["number", "time", "list"]:
+        elif self.type != other.type and self.type not in [NUMBER, TIME, LIST]:
             raise TypeError(f"Type mismatch: cannot add {self.type} and {other.type}")
         
         return Symbol(self.type, self.value + other.value)
@@ -186,45 +193,45 @@ class Symbol:
     def __sub__(self, other: 'Symbol') -> 'Symbol':
         if not isinstance(other, Symbol):
             raise TypeError(f"Expected Symbol, got {type(other)}")
-        if (self.type == "date" and other.type == "number"):
-            return Symbol("date", self.value - other.value)
-        elif (self.type == "time" and other.type == "number"):
-            return Symbol("time", self.value - other.value)
-        elif self.type != other.type and self.type not in ["number", "time"]:
+        if (self.type == DATE and other.type == NUMBER):
+            return Symbol(DATE, self.value - other.value)
+        elif (self.type == TIME and other.type == NUMBER):
+            return Symbol(TIME, self.value - other.value)
+        elif self.type != other.type and self.type not in [NUMBER, TIME]:
             raise TypeError(f"Type mismatch: cannot subtract {self.type} and {other.type}")
         return Symbol(self.type, self.value - other.value)
     
     def __mul__(self, other: 'Symbol') -> 'Symbol':
         symbol_type = self.__type_check(other)
-        if symbol_type != "number":
+        if symbol_type != NUMBER:
             raise TypeError(f"Cannot multiply {symbol_type} values")
         return Symbol(symbol_type, self.value * other.value)
     
     def __truediv__(self, other: 'Symbol') -> 'Symbol':
         symbol_type = self.__type_check(other)
-        if symbol_type != "number":
+        if symbol_type != NUMBER:
             raise TypeError(f"Cannot divide {symbol_type} values")
         if other.value == 0:
             raise ZeroDivisionError("Division by zero is not allowed")
         return Symbol(symbol_type, self.value / other.value)
     
     def __contains__(self, item: 'Symbol') -> bool:
-        if self.type not in ["string", "list"]:
+        if self.type not in [STRING, LIST]:
             raise TypeError(f"Cannot use 'in' operator with {self.type} type")
         return item.value in self.value
     
     def __getitem__(self, index: Union[int, slice]) -> 'Symbol':
-        if self.type not in ["string", "list"]:
+        if self.type not in [STRING, LIST]:
             raise TypeError(f"Cannot use indexing with {self.type} type")
         return Symbol(self.type, self.value[index])
         
     def __bool__(self) -> bool:
-        if  self.type != "boolean":
+        if  self.type != BOOLEAN:
             raise TypeError(f"Cannot convert {self.type} to boolean")
         return self.value
     
     def __neg__(self) -> 'Symbol':
-        if self.type != "number":
+        if self.type != NUMBER:
             raise TypeError(f"Cannot negate {self.type} type")
         return Symbol(self.type, -self.value)
     
@@ -234,7 +241,7 @@ class Symbol:
     def __str__(self):
         if self.value is None:
             return "null"
-        if self.type == "boolean":
+        if self.type == BOOLEAN:
             return "true" if self.value else "false"
         return str(self.value)
     

@@ -1,6 +1,8 @@
 import json, sys
 
+from preprocessor import PreProcessor
 from nodes import *
+
 
 NODES = {
     "block": Block,
@@ -47,7 +49,9 @@ def main() -> None:
     
     ASTdata = json.load(open(filename, "r"))
     AST = load_AST(ASTdata)
-    AST.evaluate(SymbolTable())
+    st = SymbolTable()
+    PreProcessor.preprocess(st)
+    AST.evaluate(st)
     
 if __name__ == "__main__":
     main()
