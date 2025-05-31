@@ -90,30 +90,30 @@
         struct ScopeStack *next;
     } ScopeStack;
 
-    Node *ast_root = create_node("block");  // Raiz da AST
-    Node *current_node = ast_root;  // Nó atual para construção da AST
-    ScopeStack *node_stack = NULL; // Pilha de escopos para gerenciar blocos
+    Node *root = create_node("block");  // Raiz da AST
+    Node *current_scope = root;  // scopo atual para colocar os nós da AST
+    ScopeStack *scope_stack = NULL; // Pilha de escopos para gerenciar blocos
 
     Node *create_scope_node(const char *type, const void *value=NULL) {
         Node *node = create_node(type, value);
 
         ScopeStack *new_stack_entry = (ScopeStack *)malloc(sizeof(ScopeStack));
-        new_stack_entry->node = current_node;
-        new_stack_entry->next = node_stack;
-        node_stack = new_stack_entry;
+        new_stack_entry->node = current_scope;
+        new_stack_entry->next = scope_stack;
+        scope_stack = new_stack_entry;
 
-        current_node = node;
+        current_scope = node;
         return node;
     }
 
     void exit_scope() {
-        if (node_stack) {
-            ScopeStack *old_stack_entry = node_stack;
-            current_node = node_stack->node;
-            node_stack = node_stack->next;
+        if (scope_stack) {
+            ScopeStack *old_stack_entry = scope_stack;
+            current_scope = scope_stack->node;
+            scope_stack = scope_stack->next;
             free(old_stack_entry);
         } else {
-            current_node = ast_root;
+            current_scope = root;
         }
     }
 %}
@@ -142,20 +142,22 @@
 %token NEWLINE
 
 %type <number> NUMBER
-%type <string> STRING TIME DATE IDENTIFIER type
+%type <string> STRING TIME DATE IDENTIFIER 
 %type <boolean> BOOLEAN
 
-%type <node> program block start_block
-%type <node> else_clause
+%type <string> type field_type
+
+%type <node> start_block block form_block field_block 
+%type <node> list start_list
 %type <node> boolean_expression boolean_factor boolean_term expression term factor
-%type <node> form_block field_block field_params field_type 
+%type <node> else_clause
 
 %start program
 
 %%
 
 program:
-    statement_list { print("root"); }
+    statement_list
     ;
 
 start_block:
@@ -175,16 +177,17 @@ statement_list:
 
 
 statement:
-      IF boolean_expression THEN block { Node *node = create_node("if"); add_child(node, $2); add_child(node, $4); add_child(current_node, node); }
-    | IF boolean_expression THEN block else_clause { Node *node = create_node("if"); add_child(node, $2); add_child(node, $4); add_child(node, $5); add_child(current_node, node); }
-    | WHILE boolean_expression REPEAT block { Node *node = create_node("while"); add_child(node, $2); add_child(node, $4); add_child(current_node, node); }
-    | type IDENTIFIER ASSIGN boolean_expression { Node *node = create_node("variable", $1); add_child(node, create_node("indentifier", $2)); add_child(node, $4); add_child(current_node, node); }
-    | type IDENTIFIER { Node *node = create_node("variable", $1); add_child(node, create_node("identifier", $2)); add_child(current_node, node); }
-    | IDENTIFIER ASSIGN boolean_expression { Node *node = create_node("assignment"); add_child(node, create_node("identifier", $1)); add_child(node, $3); add_child(current_node, node); }
-    | FORM IDENTIFIER OPEN_BRK form_statement_list CLOSE_BRK // { Node *node = create_node("variable", "form"); add_child(node, create_node("identifier", $2)); add_child(node, $4); add_child(current_node, node); }
-    | ON OPEN_SQR IDENTIFIER CLOSE_SQR DISPLAY OPEN_PAR boolean_expression CLOSE_PAR { Node *node = create_node("display"); add_child(node, create_node("identifier", $3)); add_child(node, $7); add_child(current_node, node); }
-    | CANCEL { Node *node = create_node("cancel"); add_child(current_node, node); }
-    | SUBMIT { Node *node = create_node("submit"); add_child(current_node, node); }
+      type IDENTIFIER { Node *node = create_node("variable", $1); add_child(node, create_node("identifier", $2)); add_child(current_scope, node); }
+    | type IDENTIFIER ASSIGN boolean_expression { Node *node = create_node("variable", $1); add_child(node, create_node("indentifier", $2)); add_child(node, $4); add_child(current_scope, node); }
+    | IDENTIFIER ASSIGN boolean_expression { Node *node = create_node("assignment"); add_child(node, create_node("identifier", $1)); add_child(node, $3); add_child(current_scope, node); }
+    | IF boolean_expression THEN block { Node *node = create_node("if"); add_child(node, $2); add_child(node, $4); add_child(current_scope, node); }
+    | IF boolean_expression THEN block else_clause { Node *node = create_node("if"); add_child(node, $2); add_child(node, $4); add_child(node, $5); add_child(current_scope, node); }
+    | WHILE boolean_expression REPEAT block { Node *node = create_node("while"); add_child(node, $2); add_child(node, $4); add_child(current_scope, node); }
+    
+    | FORM IDENTIFIER form_block { Node *node = create_node("variable", "form"); add_child(node, create_node("identifier", $2)); add_child(node, $3); add_child(current_scope, node); }
+    | ON OPEN_SQR IDENTIFIER CLOSE_SQR DISPLAY OPEN_PAR boolean_expression CLOSE_PAR { Node *node = create_node("display"); add_child(node, create_node("identifier", $3)); add_child(node, $7); add_child(current_scope, node); }
+    | CANCEL { Node *node = create_node("cancel"); add_child(current_scope, node); }
+    | SUBMIT { Node *node = create_node("submit"); add_child(current_scope, node); }
     ;
 
 else_clause:
@@ -202,49 +205,60 @@ type:
     ;
 
 form_block:
-    OPEN_BRK NEWLINE form_statement_list CLOSE_BRK { current_node = create_node("form_block"); $$ = current_node; }
-    ;
-
-field_block:
-    OPEN_BRK NEWLINE field_params CLOSE_BRK { current_node = create_node("field_block"); $$ = current_node; }
+    start_block form_statement_list CLOSE_BRK { exit_scope(); $$ = $1; }
     ;
 
 form_statement_list:
     /* vazio */
     | NEWLINE form_statement_list
-    | FIELD IDENTIFIER field_type OPEN_BRK NEWLINE field_params CLOSE_BRK NEWLINE form_statement_list // { $$ = create_node("form_field"); add_child($$, create_node("identifier", $2)); add_child($$, $5); }
-    | VALIDATOR block NEWLINE form_statement_list // { $$ = create_node("form_validator"); add_child($$, $2); }
+    | form_statement NEWLINE form_statement_list
     ;
 
-field_params:
+form_statement:
+      FIELD IDENTIFIER field_type field_block { Node *node = create_node("field", $3); add_child(node, create_node("identifier", $2)); add_child(node, $4); add_child(current_scope, node); }
+    | VALIDATOR block { Node *node = create_node("form_validator"); add_child(node, $2); add_child(current_scope, node); }
+
+field_block:
+    start_block field_statement_list CLOSE_BRK { exit_scope(); $$ = $1; }
+    ;
+
+field_statement_list:
     /* vazio */
-    | NEWLINE field_params
-    | REQUIRED field_params
-    | TITLE ASSIGN boolean_expression NEWLINE field_params
-    | DESCRIPTION ASSIGN boolean_expression NEWLINE field_params
-    | PLACEHOLDER ASSIGN boolean_expression NEWLINE field_params
-    | DEFAULT ASSIGN boolean_expression NEWLINE field_params
-    | OPTIONS ASSIGN list NEWLINE field_params
-    | VALIDATOR block NEWLINE field_params
+    | NEWLINE field_statement_list
+    | field_statement NEWLINE field_statement_list
+    ;
+
+field_statement:
+      REQUIRED { add_child(current_scope, create_node("required")); }
+    | TITLE ASSIGN boolean_expression { Node *node = create_node("title"); add_child(node, $3); add_child(current_scope, node); }
+    | DESCRIPTION ASSIGN boolean_expression { Node *node = create_node("description"); add_child(node, $3); add_child(current_scope, node); }
+    | PLACEHOLDER ASSIGN boolean_expression { Node *node = create_node("placeholder"); add_child(node, $3); add_child(current_scope, node); }
+    | DEFAULT ASSIGN boolean_expression { Node *node = create_node("default"); add_child(node, $3); add_child(current_scope, node); }
+    | OPTIONS ASSIGN list { Node *node = create_node("options"); add_child(node, $3); add_child(current_scope, node); }
+    | VALIDATOR block { Node *node = create_node("field_validator"); add_child(node, $2); add_child(current_scope, node); }
     ;
 
 field_type:
-      NUMBER_TYPE
-    | STRING_TYPE
-    | TIME_TYPE
-    | DATE_TYPE
-    | SELECT
+      NUMBER_TYPE { $$ = strdup("number"); }
+    | STRING_TYPE { $$ = strdup("string"); }
+    | TIME_TYPE   { $$ = strdup("time"); }
+    | DATE_TYPE   { $$ = strdup("date"); }
+    | SELECT      { $$ = strdup("select"); }
+    ;
+
+start_list:
+    OPEN_SQR NEWLINE { $$ = create_scope_node("list"); }
     ;
 
 list: 
-    OPEN_SQR NEWLINE list_items CLOSE_SQR
+    start_list list_items CLOSE_SQR { exit_scope(); $$ = $1; }
     ;
 
 list_items:
     /* vazio */
-    | NEWLINE list_items
-    | boolean_expression COMMA list_items
-    | boolean_expression NEWLINE
+    | NEWLINE list_items 
+    | boolean_expression COMMA list_items { add_child(current_scope, $1); }
+    | boolean_expression NEWLINE { add_child(current_scope, $1); }
     ;
 
 
@@ -321,12 +335,11 @@ int main(int argc, char *argv[]) {
 
     yyin = source_file;
 
-    // Executa o parser
     if (yyparse() == 0) {
         printf("Análise sintática concluída com sucesso.\n");
-        save_ast_json(ast_root, output_file);  // Imprime a AST gerada
-
-        // free_ast(ast_root);  // Libera a memória da AST
+        save_ast_json(root, output_file); 
+        printf("AST salva em: %s\n", output_filename);
+        free_ast(root); 
     }
 
     fclose(source_file);
