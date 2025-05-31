@@ -1,6 +1,15 @@
 %{
     #include <stdio.h>
     #include "parser.tab.h"
+
+    char *str_parse(const char *str) {
+        size_t len = strlen(str);
+        char *str_parsed = (char *)malloc(len); 
+        strncpy(str_parsed, str + 1, len - 2); 
+        str_parsed[len - 2] = '\0'; 
+        return str_parsed;
+    }
+
 %}
 
 DIGIT   [0-9]
@@ -71,10 +80,10 @@ IDENTIFIER  {LETTER}({LETTER}|{DIGIT}|"_")*
 
 {NUMBER_VAL}  { yylval.number = atof(yytext);   return NUMBER; }
 
-["][0-9][0-9][:][0-9][0-9]["] { yylval.string = strdup(yytext); return TIME; }
-["][0-9][0-9][0-9][0-9][-](1[0-2]|0[0-9])[-]([0-2][0-9]|3[0-1])["] { yylval.string = strdup(yytext); return DATE; }
+["][0-9][0-9][:][0-9][0-9]["] { yylval.string = str_parse(yytext); return TIME; }
+["][0-9][0-9][0-9][0-9][-](1[0-2]|0[0-9])[-]([0-2][0-9]|3[0-1])["] { yylval.string = str_parse(yytext); return DATE; }
 
-{STRING_VAL} { yylval.string = strdup(yytext); return STRING; }
+{STRING_VAL} { yylval.string = str_parse(yytext); return STRING; }
 
 
 {IDENTIFIER} { yylval.string = strdup(yytext); return IDENTIFIER; }

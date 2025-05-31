@@ -7,25 +7,43 @@
     int yylex();
     extern FILE *yyin;  // Permite leitura de arquivo no Flex
 
+    void print(const char *msg) {
+        printf("%s\n", msg);
+        fflush(stdout);
+    }
+
     // Estrutura de nó da AST
+    typedef union {
+        char *s_value;
+        float f_value;
+    } Value;
+
     typedef struct Node {
         char *type;
-        char *value;
+        Value value;
         struct Node **children;
         int child_count;
     } Node;
 
-    Node *create_node(const char *type, const char *value=NULL) {
+    Node *create_node(const char *type, const void *value=NULL) {
         Node *node = (Node *)malloc(sizeof(Node));
         node->type = strdup(type);
-        node->value = value ? strdup(value) : NULL;
         node->children = NULL;
         node->child_count = 0;
+
+        if (!value) {
+            node->value.s_value = NULL;
+        } else if (strcmp(type, "number") == 0) {
+            node->value.f_value = *(float *)value;
+        } else {
+            node->value.s_value = strdup((char *)value);
+        }
+
         return node;
     }
 
     void add_child(Node *parent, Node *child) {
-        parent->children = (Node**)realloc(parent->children, sizeof(Node*) * (parent->child_count + 1));
+        parent->children = (Node **)realloc(parent->children, sizeof(Node *) * (parent->child_count + 1));
         parent->children[parent->child_count++] = child;
     }
 
@@ -35,26 +53,30 @@
         for (int i = 0; i < node->child_count; i++) {
             free_ast(node->children[i]);
         }
+        
+        if (strcmp(node->type, "number") != 0) {
+            free(node->value.s_value);
+        }
+        free(node->type);
+        free(node->children);
         free(node);
     }
 
     void save_ast_json(Node *node, FILE *file) {
-        if (!node) {
-            fprintf(file, "null");
-            return;
-        }
+        if (!node) return;
 
         fprintf(file, "{ \"type\": \"%s\"", node->type);
-        if (node->value) fprintf(file, ", \"value\": \"%s\"", node->value);
+        if (strcmp(node->type, "number") == 0) {
+            fprintf(file, ", \"value\": %.2f", node->value.f_value);
+        } else if (node->value.s_value) {
+            fprintf(file, ", \"value\": \"%s\"", node->value.s_value);
+        }
 
         if (node->child_count > 0 && node->children) {
             fprintf(file, ", \"children\": [");
             for (int i = 0; i < node->child_count; i++) {
                 if (node->children[i]) {
-                    fflush(file);
                     save_ast_json(node->children[i], file);
-                } else {
-                    fprintf(file, "null");
                 }
                 if (i < node->child_count - 1) fprintf(file, ", ");
             }
@@ -63,14 +85,37 @@
         fprintf(file, "}");
     }
 
-    void print(const char *msg) {
-        printf("%s\n", msg);
-        fflush(stdout);
-    }
-
+    typedef struct ScopeStack {
+        Node *node;
+        struct ScopeStack *next;
+    } ScopeStack;
 
     Node *ast_root = create_node("block");  // Raiz da AST
     Node *current_node = ast_root;  // Nó atual para construção da AST
+    ScopeStack *node_stack = NULL; // Pilha de escopos para gerenciar blocos
+
+    Node *create_scope_node(const char *type, const void *value=NULL) {
+        Node *node = create_node(type, value);
+
+        ScopeStack *new_stack_entry = (ScopeStack *)malloc(sizeof(ScopeStack));
+        new_stack_entry->node = current_node;
+        new_stack_entry->next = node_stack;
+        node_stack = new_stack_entry;
+
+        current_node = node;
+        return node;
+    }
+
+    void exit_scope() {
+        if (node_stack) {
+            ScopeStack *old_stack_entry = node_stack;
+            current_node = node_stack->node;
+            node_stack = node_stack->next;
+            free(old_stack_entry);
+        } else {
+            current_node = ast_root;
+        }
+    }
 %}
 
 %define parse.error verbose  // Mensagens de erro detalhadas
@@ -81,7 +126,7 @@
     float number;
     char* string;
     int boolean;
-    struct Node* node;  // Adicionando Node* ao union
+    struct Node* node; 
 }
 
 %token NUMBER STRING TIME DATE IDENTIFIER BOOLEAN
@@ -100,41 +145,46 @@
 %type <string> STRING TIME DATE IDENTIFIER type
 %type <boolean> BOOLEAN
 
-%type <node> program block statement
+%type <node> program block start_block
 %type <node> else_clause
 %type <node> boolean_expression boolean_factor boolean_term expression term factor
+%type <node> form_block field_block field_params field_type 
 
 %start program
 
 %%
 
 program:
-    statement_list { printf("root\n"); fflush(stdout); }
+    statement_list { print("root"); }
+    ;
+
+start_block:
+    OPEN_BRK NEWLINE { $$ = create_scope_node("block"); }
     ;
 
 block:
-    OPEN_BRK NEWLINE statement_list CLOSE_BRK { printf("new block\n"); fflush(stdout); current_node = create_node("block"); $$ = current_node; }
+    start_block statement_list CLOSE_BRK { exit_scope(); $$ = $1; }
     ;
 
 statement_list:
     /* vazio */
     | NEWLINE statement_list
-    | statement NEWLINE statement_list { printf("new statement in statement_list\n"); fflush(stdout); add_child(current_node, $1); }
-    | statement YYEOF { add_child(current_node, $1); }
+    | statement NEWLINE statement_list
+    | statement YYEOF
     ;
 
 
 statement:
-      IF boolean_expression THEN block { $$ = create_node("if"); add_child($$, $2); add_child($$, $4); }
-    | IF boolean_expression THEN block else_clause { $$ = create_node("if"); add_child($$, $2); add_child($$, $4); add_child($$, $5); }
-    | WHILE boolean_expression REPEAT block { $$ = create_node("while"); add_child($$, $2); add_child($$, $4); }
-    | type IDENTIFIER ASSIGN boolean_expression { $$ = create_node("variable", $1); add_child($$, create_node("indentifier", $2)); add_child($$, $4); }
-    | type IDENTIFIER { $$ = create_node("variable", $1); add_child($$, create_node("identifier", $2));}
-    | IDENTIFIER ASSIGN boolean_expression { $$ = create_node("assignment"); add_child($$, create_node("identifier", $1)); add_child($$, $3); }
-    | FORM IDENTIFIER OPEN_BRK form_statement_list CLOSE_BRK // { $$ = create_node("variable", "form"); add_child($$, create_node("identifier", $2)); add_child($$, $4); }
-    | ON OPEN_SQR IDENTIFIER CLOSE_SQR DISPLAY OPEN_PAR boolean_expression CLOSE_PAR { $$ = create_node("display"); add_child($$, create_node("identifier", $3)); add_child($$, $7); }
-    | CANCEL { $$ = create_node("cancel"); }
-    | SUBMIT { $$ = create_node("submit"); }
+      IF boolean_expression THEN block { Node *node = create_node("if"); add_child(node, $2); add_child(node, $4); add_child(current_node, node); }
+    | IF boolean_expression THEN block else_clause { Node *node = create_node("if"); add_child(node, $2); add_child(node, $4); add_child(node, $5); add_child(current_node, node); }
+    | WHILE boolean_expression REPEAT block { Node *node = create_node("while"); add_child(node, $2); add_child(node, $4); add_child(current_node, node); }
+    | type IDENTIFIER ASSIGN boolean_expression { Node *node = create_node("variable", $1); add_child(node, create_node("indentifier", $2)); add_child(node, $4); add_child(current_node, node); }
+    | type IDENTIFIER { Node *node = create_node("variable", $1); add_child(node, create_node("identifier", $2)); add_child(current_node, node); }
+    | IDENTIFIER ASSIGN boolean_expression { Node *node = create_node("assignment"); add_child(node, create_node("identifier", $1)); add_child(node, $3); add_child(current_node, node); }
+    | FORM IDENTIFIER OPEN_BRK form_statement_list CLOSE_BRK // { Node *node = create_node("variable", "form"); add_child(node, create_node("identifier", $2)); add_child(node, $4); add_child(current_node, node); }
+    | ON OPEN_SQR IDENTIFIER CLOSE_SQR DISPLAY OPEN_PAR boolean_expression CLOSE_PAR { Node *node = create_node("display"); add_child(node, create_node("identifier", $3)); add_child(node, $7); add_child(current_node, node); }
+    | CANCEL { Node *node = create_node("cancel"); add_child(current_node, node); }
+    | SUBMIT { Node *node = create_node("submit"); add_child(current_node, node); }
     ;
 
 else_clause:
@@ -151,11 +201,19 @@ type:
     | DATE_TYPE { $$ = strdup("date"); }
     ;
 
+form_block:
+    OPEN_BRK NEWLINE form_statement_list CLOSE_BRK { current_node = create_node("form_block"); $$ = current_node; }
+    ;
+
+field_block:
+    OPEN_BRK NEWLINE field_params CLOSE_BRK { current_node = create_node("field_block"); $$ = current_node; }
+    ;
+
 form_statement_list:
     /* vazio */
     | NEWLINE form_statement_list
-    | FIELD IDENTIFIER field_type OPEN_BRK NEWLINE field_params CLOSE_BRK NEWLINE form_statement_list
-    | VALIDATOR block NEWLINE form_statement_list
+    | FIELD IDENTIFIER field_type OPEN_BRK NEWLINE field_params CLOSE_BRK NEWLINE form_statement_list // { $$ = create_node("form_field"); add_child($$, create_node("identifier", $2)); add_child($$, $5); }
+    | VALIDATOR block NEWLINE form_statement_list // { $$ = create_node("form_validator"); add_child($$, $2); }
     ;
 
 field_params:
@@ -220,7 +278,7 @@ term:
     ;
 
 factor:
-      NUMBER { char n_value[24]; sprintf(n_value, "%.8f", $1); $$ = create_node("number", n_value); }
+      NUMBER { $$ = create_node("number", &($1)); }
     | STRING { $$ = create_node("string", $1); }
     | BOOLEAN { $$ = create_node("boolean", $1 ? "true" : "false"); }
     | DATE { $$ = create_node("date", $1); }
