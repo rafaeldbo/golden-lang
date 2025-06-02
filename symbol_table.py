@@ -1,21 +1,47 @@
-from typing import Union, Tuple, Dict
+import json
+from typing import Dict
 
 from symbol_types import Symbol
+
+def serialize_SymbolTable(st: 'SymbolTable') -> Dict:
+    serialized = {key: symbol for key, symbol in st.table.items() if key != "__childs__"} 
+    serialized["__children__"] = [serialize_SymbolTable(child) for child in st.children.values()]
+    return {st.name: serialized}
 
 class SymbolTable:
     table: Dict[str, Symbol]
     parent: 'SymbolTable'
+    children: Dict[str, 'SymbolTable'] 
+    id: int = 0
     
-    def __init__(self, parent:'SymbolTable'=None) -> None:
+    def __init__(self, parent:'SymbolTable'=None, name:str=None) -> None:
+        self.name = f"{name}#{SymbolTable.get_id()}" if name else f"SymbolTable#{SymbolTable.get_id()}"
         self.table = {}
         self.parent = parent
         
+        self.children = {}
         if parent is not None:
-            parent.childs.append(self)
+            self.parent.children[self.name] = self
+            
+    @staticmethod
+    def get_id() -> int:
+        id = SymbolTable.id
+        SymbolTable.id += 1
+        return id
+            
+    def sys_create(self, key:str, var_type:str, value:Symbol=None) -> None:
+        if value is not None:
+            if var_type != value.type:
+                raise TypeError(f"Type mismatch for '{key}': expected '{var_type}', got '{value.type}'")
+            self.table[key] = Symbol(var_type, value.value)
+        else:
+            self.table[key] = Symbol(var_type)
         
     def create(self, key:str, var_type:str, value:Symbol=None) -> None:
         if key in self.table:
             raise NameError(f"Name '{key}' is already defined")
+        elif key.startswith("__") and key.endswith("__"):
+            raise NameError(f"Name '{key}' is a reserved keyword and cannot be used")
    
         if value is not None:
             if var_type != value.type:
@@ -61,3 +87,6 @@ class SymbolTable:
             parent = parent.parent
         
         raise NameError(f"Name '{key}' is not defined")
+    
+    def __str__(self) -> str:
+        return json.dumps(serialize_SymbolTable(self), indent=3, default=lambda obj: repr(obj))

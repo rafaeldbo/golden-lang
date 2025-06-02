@@ -71,6 +71,7 @@ IDENTIFIER  {LETTER}({LETTER}|{DIGIT}|"_")*
 "submit"    { return SUBMIT; }
 
 "Select"    { return SELECT; }
+"value"     { return VALUE; }
 "title"     { return TITLE; }
 "description" { return DESCRIPTION; }
 "placeholder" { return PLACEHOLDER; }

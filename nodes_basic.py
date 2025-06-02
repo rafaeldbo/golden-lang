@@ -1,23 +1,9 @@
-from abc import ABC, abstractmethod
-from typing import Union, List, Tuple
+from typing import List, Tuple
+
+from node import Node, EvaluationException
 
 from symbol_table import SymbolTable
-from symbol_types import Symbol, Date, Time, NUMBER, STRING, BOOLEAN, LIST, DATE, TIME
-
-class EvaluationException(Exception):
-    pass
-
-class Node(ABC):
-    value: Union[str, float]
-    children: List['Node']
-    
-    def __init__(self, value:Union[str, float, bool], *children:List['Node']) -> None:
-        self.value = value
-        self.children = children
-    
-    @abstractmethod
-    def evaluate(self, st:SymbolTable) -> Union[Symbol, None]:
-        pass
+from symbol_types import Symbol, Date, Time, NUMBER, STRING, BOOLEAN, LIST, DATE, TIME, OBJECT
 
 
 class NoOp(Node):
@@ -97,10 +83,16 @@ class StringValue(Node):
     
 class BooleanValue(Node):
     def __init__(self, value:str, *void:Tuple[Node]):
-        super().__init__(value)
+        if value.lower() == "true":
+            bool_value = True
+        elif value.lower() == "false":
+            bool_value = False
+        else:
+            raise ValueError(f"Invalid boolean value: {value}")
+        super().__init__(bool_value)
     
     def evaluate(self, st:SymbolTable) -> Tuple[str, bool]:
-        return Symbol(BOOLEAN, self.value.lower() == "true")
+        return Symbol(BOOLEAN, self.value)
     
 class DateValue(Node):
     def __init__(self, value:str, *void:Tuple[Node]):
@@ -117,8 +109,8 @@ class TimeValue(Node):
         return Symbol(TIME, Time(self.value))
     
 class ListValue(Node):
-    def __init__(self, void, values:Tuple[Node]):
-        super().__init__(DATE, values)
+    def __init__(self, void, *values:Tuple[Node]):
+        super().__init__(LIST, values)
     
     def evaluate(self, st:SymbolTable) -> Tuple[str, List[Symbol]]:
         return (LIST, [child.evaluate(st)[1] for child in self.children])
@@ -144,24 +136,21 @@ class Assignment(Node):
     def evaluate(self, st:SymbolTable) -> None:
         st.setter(self.children[0].value, self.children[1].evaluate(st))
 
+class RootBlock(Node):
+    def __init__(self, void, *statements:Tuple[Node]):
+        super().__init__("root_block", *statements)
+    
+    def evaluate(self, st:SymbolTable) -> None:
+        for statement in self.children:
+            statement.evaluate(st)
+
 class Block(Node):
     def __init__(self, void, *statements:Tuple[Node]):
         super().__init__("block", *statements)
     
     def evaluate(self, st:SymbolTable) -> None:
         for statement in self.children:
-            statement.evaluate(st)
-
-class Display(Node):
-    def __init__(self, void, identifier:Node, printable_expression:Node):
-        super().__init__("display", identifier, printable_expression)
-    
-    def evaluate(self, st:SymbolTable) -> None:
-        on = self.children[0].evaluate(st)
-        if on.type not in ["form", "page", "field"]:
-            raise EvaluationException(f"Display operation can only be performed on 'PAGE', form variable or field variable, not {on.type}")
-        self.children[1].evaluate(st)
-    
+            statement.evaluate(st) 
     
 class IfOp(Node):
     def __init__(self, void, condition:Node, if_block:Node, else_block:Node=None):
@@ -183,3 +172,43 @@ class WhileOp(Node):
         if condition.type != BOOLEAN:
             raise EvaluationException("While condition must be a boolean value")
         self.children[1].evaluate(st)
+        
+
+class Attribute(Node):
+    def __init__(self, attribute_name:str, *identifiers:Tuple[Node]):
+        super().__init__(attribute_name, *reversed(identifiers))
+    
+    def evaluate(self, st:SymbolTable) -> Symbol:
+        current_st = st
+        for i in range(len(self.children)):
+            if self.children[i] is None:
+                break
+            obj = self.children[i].evaluate(current_st)
+            if obj.type != "object":
+                raise EvaluationException(f"Expected an object, got {obj.type}")
+            current_st = obj.value
+        return Symbol(OBJECT, current_st) 
+
+class AttributeAccess(Node):
+    def __init__(self, void, attribute:Node):
+        super().__init__("attribute_access", attribute)
+    
+    def evaluate(self, st:SymbolTable) -> Symbol:
+        obj = self.children[0].evaluate(st)
+        if obj.type != "object":
+            raise EvaluationException(f"Expected an object, got {obj.type}")
+        
+        return obj.value.getter(self.children[0].value)
+        
+        
+class AttributeAssignment(Node):
+    def __init__(self, void, attribute:Node, value:Tuple[Node]):
+        super().__init__("attribute_assignment", attribute, value)
+    
+    def evaluate(self, st:SymbolTable) -> None:
+        obj = self.children[0].evaluate(st)
+        if obj.type != "object":
+            raise EvaluationException(f"Expected an object, got {obj.type}")
+        value = self.children[1].evaluate(st)
+        
+        obj.value.setter(self.children[0].value, value)

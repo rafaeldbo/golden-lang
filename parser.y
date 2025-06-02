@@ -90,7 +90,7 @@
         struct ScopeStack *next;
     } ScopeStack;
 
-    Node *root = create_node("block");  // Raiz da AST
+    Node *root = create_node("root");  // Raiz da AST
     Node *current_scope = root;  // scopo atual para colocar os nós da AST
     ScopeStack *scope_stack = NULL; // Pilha de escopos para gerenciar blocos
 
@@ -138,17 +138,17 @@
 %token EQUAL GREATER LESS
 %token IF THEN ELSE WHILE REPEAT NEW
 %token FIELD FORM ON DISPLAY CANCEL SUBMIT
-%token REQUIRED TITLE DESCRIPTION PLACEHOLDER DEFAULT SELECT OPTIONS VALIDATOR
+%token VALUE REQUIRED TITLE DESCRIPTION PLACEHOLDER DEFAULT SELECT OPTIONS VALIDATOR
 %token NEWLINE
 
 %type <number> NUMBER
 %type <string> STRING TIME DATE IDENTIFIER 
 %type <boolean> BOOLEAN
 
-%type <string> type field_type
+%type <string> type field_type field_attribute
 
 %type <node> start_block block form_block field_block 
-%type <node> list start_list
+%type <node> list start_list attribute
 %type <node> boolean_expression boolean_factor boolean_term expression term factor
 %type <node> else_clause
 
@@ -179,12 +179,15 @@ statement_list:
 statement:
       type IDENTIFIER { Node *node = create_node("variable", $1); add_child(node, create_node("identifier", $2)); add_child(current_scope, node); }
     | type IDENTIFIER ASSIGN boolean_expression { Node *node = create_node("variable", $1); add_child(node, create_node("identifier", $2)); add_child(node, $4); add_child(current_scope, node); }
+    
     | IDENTIFIER ASSIGN boolean_expression { Node *node = create_node("assignment"); add_child(node, create_node("identifier", $1)); add_child(node, $3); add_child(current_scope, node); }
+    | attribute ASSIGN boolean_expression { Node *node = create_node("attribute_assignment"); add_child(node, $1); add_child(node, $3); add_child(current_scope, node); } 
+    
     | IF boolean_expression THEN block { Node *node = create_node("if"); add_child(node, $2); add_child(node, $4); add_child(current_scope, node); }
     | IF boolean_expression THEN block else_clause { Node *node = create_node("if"); add_child(node, $2); add_child(node, $4); add_child(node, $5); add_child(current_scope, node); }
     | WHILE boolean_expression REPEAT block { Node *node = create_node("while"); add_child(node, $2); add_child(node, $4); add_child(current_scope, node); }
     
-    | FORM IDENTIFIER form_block { Node *node = create_node("variable", "form"); add_child(node, create_node("identifier", $2)); add_child(node, $3); add_child(current_scope, node); }
+    | FORM IDENTIFIER form_block { Node *node = create_node("form"); add_child(node, create_node("identifier", $2)); add_child(node, $3); add_child(current_scope, node); }
     | ON OPEN_SQR IDENTIFIER CLOSE_SQR DISPLAY OPEN_PAR boolean_expression CLOSE_PAR { Node *node = create_node("display"); add_child(node, create_node("identifier", $3)); add_child(node, $7); add_child(current_scope, node); }
     | CANCEL { Node *node = create_node("cancel"); add_child(current_scope, node); }
     | SUBMIT { Node *node = create_node("submit"); add_child(current_scope, node); }
@@ -197,11 +200,11 @@ else_clause:
     ;
 
 type:
-      NUMBER_TYPE { $$ = strdup("number"); }
-    | STRING_TYPE { $$ = strdup("string"); }
+      NUMBER_TYPE  { $$ = strdup("number"); }
+    | STRING_TYPE  { $$ = strdup("string"); }
     | BOOLEAN_TYPE { $$ = strdup("boolean"); }
-    | TIME_TYPE { $$ = strdup("time"); }
-    | DATE_TYPE { $$ = strdup("date"); }
+    | TIME_TYPE    { $$ = strdup("time"); }
+    | DATE_TYPE    { $$ = strdup("date"); }
     ;
 
 form_block:
@@ -246,6 +249,22 @@ field_type:
     | SELECT      { $$ = strdup("select"); }
     ;
 
+field_attribute:
+      VALUE       { $$ = strdup("__value__"); }
+    | REQUIRED    { $$ = strdup("__required__"); }
+    | TITLE       { $$ = strdup("__title__"); }
+    | DESCRIPTION { $$ = strdup("__description__"); }
+    | PLACEHOLDER { $$ = strdup("__placeholder__"); }
+    | DEFAULT     { $$ = strdup("__default__"); }
+    | OPTIONS     { $$ = strdup("__options__"); }
+    ;
+
+attribute:
+      IDENTIFIER attribute { $$ = $2; add_child($$, create_node("identifier", $1)); }
+    | DOT IDENTIFIER attribute { $$ = $3; add_child($$, create_node("identifier", $2)); }
+    | DOT field_attribute { $$ = create_node("attribute", $2); }
+    | DOT IDENTIFIER { $$ = create_node("attribute", $2); }
+
 start_list:
     OPEN_SQR NEWLINE { $$ = create_scope_node("list"); }
     ;
@@ -260,7 +279,6 @@ list_items:
     | boolean_expression COMMA list_items { add_child(current_scope, $1); }
     | boolean_expression NEWLINE { add_child(current_scope, $1); }
     ;
-
 
 boolean_expression:
       boolean_term { $$ = $1; }
@@ -298,6 +316,7 @@ factor:
     | DATE { $$ = create_node("date", $1); }
     | TIME { $$ = create_node("time", $1); }
     | IDENTIFIER { $$ = create_node("identifier", $1); }
+    | attribute { $$ = create_node("attribute_access"); add_child($$, $1); }
     | MINUS factor { $$ = create_node("un_op", "minus"); add_child($$, $2); }
     | NOT factor { $$ = create_node("un_op", "not"); add_child($$, $2); }
     | OPEN_PAR boolean_expression CLOSE_PAR { $$ = $2; }

@@ -7,6 +7,7 @@ BOOLEAN = "boolean"
 DATE = "date"
 TIME = "time"
 LIST = "list"
+OBJECT = "object"
 
 class Date:
     value: date
@@ -131,7 +132,7 @@ class Time:
 
 class Symbol:
     type: str
-    value: Union[float, str, bool]
+    value: Union[float, str, bool, Time, Date]
     
     def __init__(self, symbol_type: str, value: Union[float, str, bool, Date, Time]=None) -> None:
         self.type = symbol_type
@@ -140,8 +141,10 @@ class Symbol:
     def __type_check(self, other: 'Symbol') -> str:
         if not isinstance(other, Symbol):
             raise TypeError(f"Expected Symbol, got {type(other)}")
-        if self.type != other.type:
-            raise TypeError(f"Type mismatch: expected {self.type}, got {other.type}")    
+        elif self.type != other.type:
+            raise TypeError(f"Type mismatch: expected {self.type}, got {other.type}")
+        elif self.type == OBJECT:
+            raise TypeError("Cannot perform operations on OBJECT type directly")
         return self.type
     
     def __eq__(self, other: 'Symbol') -> bool:
@@ -172,6 +175,9 @@ class Symbol:
         if not isinstance(other, Symbol):
             raise TypeError(f"Expected Symbol, got {type(other)}")
         
+        elif self.type == OBJECT or other.type == OBJECT:
+            raise TypeError("Type mismatch: Cannot perform add with 'object's type")
+        
         elif self.type == STRING or other.type == STRING:
             return Symbol(STRING, str(self.value) + str(other.value))
         
@@ -193,12 +199,18 @@ class Symbol:
     def __sub__(self, other: 'Symbol') -> 'Symbol':
         if not isinstance(other, Symbol):
             raise TypeError(f"Expected Symbol, got {type(other)}")
+        
+        elif self.type == OBJECT or other.type == OBJECT:
+            raise TypeError("Type mismatch: Cannot perform add with 'object's type")
+        
         if (self.type == DATE and other.type == NUMBER):
             return Symbol(DATE, self.value - other.value)
         elif (self.type == TIME and other.type == NUMBER):
             return Symbol(TIME, self.value - other.value)
+        
         elif self.type != other.type and self.type not in [NUMBER, TIME]:
             raise TypeError(f"Type mismatch: cannot subtract {self.type} and {other.type}")
+        
         return Symbol(self.type, self.value - other.value)
     
     def __mul__(self, other: 'Symbol') -> 'Symbol':
@@ -247,5 +259,16 @@ class Symbol:
     
     def __repr__(self) -> str:
         if self.value is None:
-            return f"<{self.type.upper()}: UNINITIALIZED>"
-        return f"<{self.type.upper()}: {self.value}>"
+            return f"< {self.type.upper()}: UNINITIALIZED >"
+        elif self.type == OBJECT:
+            return f"< {self.type.upper()}: {self.value.name} >"
+        return f"< {self.type.upper()}: {self.value} >"
+    
+DEFAULT_VALUE = {
+    NUMBER: Symbol(NUMBER, 0.0),
+    STRING: Symbol(STRING, ""),
+    BOOLEAN: Symbol(BOOLEAN, False),
+    DATE: Symbol(DATE, Date("1970-01-01")),
+    TIME: Symbol(TIME, Time("00:00")),
+    LIST: Symbol(LIST, []),
+}

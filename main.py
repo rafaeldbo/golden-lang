@@ -1,10 +1,15 @@
 import json, sys
 
 from preprocessor import PreProcessor
-from nodes import *
+from node import Node, SymbolTable
+from nodes_basic import RootBlock, Block, Identifier, Variable, Assignment, BinOp, UnOp, IfOp, WhileOp
+from nodes_basic import NumberValue, StringValue, BooleanValue, DateValue, TimeValue, ListValue, Attribute, AttributeAccess, AttributeAssignment
+from nodes_form import Display, Form, FormField, FormValidator, FieldValidator
+from nodes_form import FieldRequiredParam, FieldTitleParam, FieldDescriptionParam, FieldPlaceholderParam, FieldOptionsParam, FieldDefaultParam, CancelOp, SubmitOp
 
 
 NODES = {
+    "root": RootBlock,
     "block": Block,
     "identifier": Identifier,
     "variable": Variable,
@@ -22,23 +27,35 @@ NODES = {
     "time": TimeValue,
     "list": ListValue,
     
-    # "cancel": CancelOp,
-    # "submit": SubmitOp,
-    # "field": FormField,
-    # "form_validator": FormValidator,
-    # "required": FieldRequiredParam,
-    # "title": FieldTitleParam,
-    # "description": FieldDescriptionParam,
-    # "placeholder": FieldPlaceholderParam,
-    # "options": FieldOptionsParam,
-    # "default": FieldDefaultParam,
-    # "field_validator": FieldValidator,
+    "attribute": Attribute,
+    "attribute_access": AttributeAccess,
+    "attribute_assignment": AttributeAssignment,
+    
+    "form": Form,
+    "field": FormField,
+    "form_validator": FormValidator,
+    "required": FieldRequiredParam,
+    "title": FieldTitleParam,
+    "description": FieldDescriptionParam,
+    "placeholder": FieldPlaceholderParam,
+    "options": FieldOptionsParam,
+    "default": FieldDefaultParam,
+    "field_validator": FieldValidator,
+    "cancel": CancelOp,
+    "submit": SubmitOp,
     
 }
 
 def load_AST(data: dict) -> Node:
     children = [load_AST(child) for child in data.get("children", [])]
-    return NODES[data["type"]](data.get("value", None), *children)
+    try:
+        node = NODES[data["type"]]
+        return node(data.get("value", None), *children)
+    except Exception as e:
+        print(node)
+        print(data)
+        raise e
+
     
 def main() -> None:
     if len(sys.argv) < 2:
@@ -49,9 +66,9 @@ def main() -> None:
     
     ASTdata = json.load(open(filename, "r"))
     AST = load_AST(ASTdata)
-    st = SymbolTable()
+    st = SymbolTable(name="root")
     PreProcessor.preprocess(st)
     AST.evaluate(st)
-    
+    # print(st)
 if __name__ == "__main__":
     main()
