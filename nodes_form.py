@@ -28,6 +28,7 @@ class Form(Node):
         form_st.sys_create("__object_type__", STRING, Symbol(STRING, "form"))
         form_st.sys_create("__name__", STRING, Symbol(STRING, self.children[0].value))
         self.children[1].evaluate(form_st)
+        Node.late_evaluate()
         
 class FormField(Node):
     def __init__(self, field_type:str, identifier:Node, field_block:Node):
@@ -47,6 +48,9 @@ class FormValidator(Node):
         super().__init__("form_validator", validator_block)
     
     def evaluate(self, st:SymbolTable) -> None:
+        Node.await_evaluate(self, st)
+        
+    def late_evaluate(self, st:SymbolTable) -> None:
         self.children[0].evaluate(SymbolTable(st, name="validator"))
      
 class FieldValidator(Node):
@@ -54,7 +58,10 @@ class FieldValidator(Node):
         super().__init__("field_validator", validator_block)
     
     def evaluate(self, st:SymbolTable) -> None:
-        self.children[1].evaluate(SymbolTable(st, name="validator"))
+        Node.await_evaluate(self, st)
+        
+    def late_evaluate(self, st:SymbolTable) -> None:
+        self.children[0].evaluate(SymbolTable(st, name="validator"))
         
 class FieldRequiredParam(Node):
     def __init__(self, *void:Tuple[Node]):
