@@ -19,6 +19,11 @@ class Node(ABC):
     def evaluate(self, st:SymbolTable) -> Union[Symbol, None]:
         pass
     
+    # @abstractmethod
+    def generate(self) -> Union[str, None]:
+        print(F"Generating code for {self.__class__.__name__} not implemented")
+        pass
+    
     @staticmethod
     def await_evaluate(node:'Node', st:SymbolTable) -> None:
         Node.queue.append((node, st))

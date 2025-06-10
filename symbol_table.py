@@ -5,8 +5,13 @@ from symbol_types import Symbol
 
 def serialize_SymbolTable(st: 'SymbolTable') -> Dict:
     serialized = {key: symbol for key, symbol in st.table.items() if key != "__childs__"} 
-    serialized["__children__"] = [serialize_SymbolTable(child) for child in st.children.values()]
-    return {st.name: serialized}
+    serialized["__children__"] = []
+    for child in st.children.values():
+        serialized_child = serialize_SymbolTable(child)
+        if serialized_child is not None:
+            serialized["__children__"].append(serialized_child)
+    if len(serialized) > 1 or len(serialized["__children__"]) > 0:
+        return {st.name: serialized}
 
 class SymbolTable:
     table: Dict[str, Symbol]
@@ -89,4 +94,7 @@ class SymbolTable:
         raise NameError(f"Name '{key}' is not defined")
     
     def __str__(self) -> str:
-        return json.dumps(serialize_SymbolTable(self), indent=3, default=lambda obj: repr(obj))
+        serialized_st = serialize_SymbolTable(self)
+        if serialized_st is not None:
+            return json.dumps(serialized_st, indent=3, default=lambda obj: repr(obj))
+        return ""

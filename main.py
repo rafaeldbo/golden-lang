@@ -2,10 +2,11 @@ import json, sys
 
 from preprocessor import PreProcessor
 from node import Node, SymbolTable
+from code_generator import Code
 from nodes_basic import RootBlock, Block, Identifier, Variable, Assignment, BinOp, UnOp, IfOp, WhileOp
 from nodes_basic import NumberValue, StringValue, BooleanValue, DateValue, TimeValue, ListValue, Attribute, AttributeAccess, AttributeAssignment
-from nodes_form import Display, Form, FormField, FormValidator, FieldValidator
-from nodes_form import FieldRequiredParam, FieldTitleParam, FieldDescriptionParam, FieldPlaceholderParam, FieldOptionsParam, FieldDefaultParam, CancelOp, SubmitOp
+from nodes_form import Display, ObjectBlock, Form, FormField, FormOnSubmit, FieldOnChange
+from nodes_form import FieldRequiredParam, FieldTitleParam, FieldDescriptionParam, FieldPlaceholderParam, FieldOptionsParam, FieldDefaultParam, CancelOp
 
 
 NODES = {
@@ -31,19 +32,18 @@ NODES = {
     "attribute_access": AttributeAccess,
     "attribute_assignment": AttributeAssignment,
     
+    "object": ObjectBlock,
     "form": Form,
     "field": FormField,
-    "form_validator": FormValidator,
+    "form_onSubmit": FormOnSubmit,
     "required": FieldRequiredParam,
     "title": FieldTitleParam,
     "description": FieldDescriptionParam,
     "placeholder": FieldPlaceholderParam,
     "options": FieldOptionsParam,
     "default": FieldDefaultParam,
-    "field_validator": FieldValidator,
+    "field_onChange": FieldOnChange,
     "cancel": CancelOp,
-    "submit": SubmitOp,
-    
 }
 
 def load_AST(data: dict) -> Node:
@@ -52,8 +52,7 @@ def load_AST(data: dict) -> Node:
         node = NODES[data["type"]]
         return node(data.get("value", None), *children)
     except Exception as e:
-        print(node)
-        print(data)
+        print(f"Error loading node: {node} with data: {data}")
         raise e
 
     
@@ -70,5 +69,8 @@ def main() -> None:
     PreProcessor.preprocess(st)
     AST.evaluate(st)
     # print(st)
+    AST.generate()
+    Code.dump("teste")
+    
 if __name__ == "__main__":
     main()

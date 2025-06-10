@@ -47,6 +47,7 @@ IDENTIFIER  {LETTER}({LETTER}|{DIGIT}|"_")*
 "or"        { return OR; }
 
 "=="        { return EQUAL; }
+"!="        { return NOT_EQUAL; }
 ">"         { return GREATER; }
 "<"         { return LESS; }
 
@@ -68,20 +69,21 @@ IDENTIFIER  {LETTER}({LETTER}|{DIGIT}|"_")*
 "on"        { return ON; }
 "display"   { return DISPLAY; }
 "cancel"    { return CANCEL; }
-"submit"    { return SUBMIT; }
 
 "Select"    { return SELECT; }
 "value"     { return VALUE; }
 "title"     { return TITLE; }
 "description" { return DESCRIPTION; }
 "placeholder" { return PLACEHOLDER; }
+"default"   { return DEFAULT; }
 "options"   { return OPTIONS; }
 "required"  { return REQUIRED; }
-"validator" { return VALIDATOR; }
+"onChange"  { return ONCHANGE; }
+"onSubmit"  { return ONSUBMIT; }
 
 {NUMBER_VAL}  { yylval.number = atof(yytext);   return NUMBER; }
 
-["][0-9][0-9][:][0-9][0-9]["] { yylval.string = str_parse(yytext); return TIME; }
+["](2[0:4]|[0-1][0-9])[:][0-5][0-9]["] { yylval.string = str_parse(yytext); return TIME; }
 ["][0-9][0-9][0-9][0-9][-](1[0-2]|0[0-9])[-]([0-2][0-9]|3[0-1])["] { yylval.string = str_parse(yytext); return DATE; }
 
 {STRING_VAL} { yylval.string = str_parse(yytext); return STRING; }
