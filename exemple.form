@@ -1,16 +1,20 @@
 Date hoje = "2025-06-10"
 Number idade = 0
+Number n = 0
+Number fatorial = 1
 
 Form apresentacao {
     onSubmit {
-        on[PAGE]display("prazer em conhece-lo(a) " + nome.value)
+        on[PAGE]display("Prazer em conhecê-lo(a) " + nome.value)
     }
+    
     Field nome String {
         required
         placeholder = "Digite seu nome"
         title = "Nome"
         description = "Digite seu nome completo"
     }
+    
     Field idade Number {
         required
         placeholder = "Digite sua idade"
@@ -25,17 +29,7 @@ Form apresentacao {
             }
         }
     }
-    Field genero Select {
-        required
-        placeholder = "Selecione seu gênero"
-        title = "Gênero"
-        description = "Selecione seu gênero"
-        options = [
-            "Masculino", 
-            "Feminino", 
-            "Outro"
-        ]
-    }
+    
     Field data_nascimento Date {
         required
         default = hoje
@@ -54,25 +48,36 @@ Form apresentacao {
                     on[idade]display("Idade: " + idade.value)
                 }
             }
-            idade = hoje - data_nascimento.value
-        }   
+        }
     }
-    Field hora_almoco Time {
+    
+    Field fatorial_n Number {
         required
-        placeholder = "Digite a sua hora de almoço"
-        title = "Hora do almoço"
-        description = "A que horas você costuma almoçar? Responda no formato: HH:MM"
-        default = "12:00"
+        placeholder = "Digite um número para calcular o fatorial"
+        title = "Fatorial"
+        description = "Digite um número inteiro positivo"
         onChange {
-            if (hora_almoco.value < "07:00" or hora_almoco.value > "18:00") then {
-                on[hora_almoco]display("Hora de almoço inválida")
+            fatorial = 1
+            Number i = fatorial_n.value
+            while (i > 1) repeat {
+                fatorial = fatorial * i
+                i = i - 1
+            }
+            on[fatorial_n]display("O fatorial de " + fatorial_n.value + " é " + fatorial)
+        }
+    }
+    
+    Field horario_compromisso Time {
+        required
+        placeholder = "Digite um horário"
+        title = "Horário do compromisso"
+        description = "Digite o horário de um compromisso importante"
+        default = "08:00"
+        onChange {
+            if (horario_compromisso.value < "06:00" or horario_compromisso.value > "22:00") then {
+                on[horario_compromisso]display("Horário fora do intervalo permitido")
                 cancel
             }
         }
-    }
-    Field curiosidade String {
-        placeholder = "Digite uma curiosidade sobre você"
-        title = "Curiosidade"
-        description = "Fale uma coisa interessante sobre você, algo que ninguém sabe!"
     }
 }
