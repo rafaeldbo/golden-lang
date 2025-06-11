@@ -121,7 +121,9 @@ export class FormField {
             this.onChange = initial.onChange;
             this.input.addEventListener("input", () => {
                 if (this.onChange && !this.onChange()) {
-                    // código para bloquear submição
+                    this.input.classList.add("error");
+                } else if (this.input.classList.contains("error")) {
+                    this.input.classList.remove("error");
                 }
             });
         }
@@ -131,6 +133,7 @@ export class FormField {
 export class Form {
     constructor(formName, { fields = [], onSubmit = () => {} } = {}) {
         this.form = document.getElementById(formName);
+        this.submitDisplay = document.getElementById(`${formName}-submit-display`);
         this.fields = {};
         fields.forEach(field => {
             this.fields[field.name] = field;
@@ -140,10 +143,18 @@ export class Form {
         this.onSubmit = onSubmit;
         this.form.addEventListener("submit", (event) => {
             event.preventDefault();
-            if (!this.onSubmit || this.onSubmit()) {
+            const allValid = Object.values(this.fields).every(field => {
+                return !field.onChange || field.onChange();
+            });
+            if (allValid && (!this.onSubmit || this.onSubmit())) {
+                if (this.submitDisplay.classList.contains("error")) this.submitDisplay.classList.remove("error");
+                this.submitDisplay.textContent = "Form submitted successfully! (Check console for data)";
                 const formData = this.getFormData();
                 this.form.reset();
                 console.log("Form submitted with data:", formData);
+            } else {
+                if (!this.submitDisplay.classList.contains("error")) this.submitDisplay.classList.add("error");
+                this.submitDisplay.textContent = "Please fix the errors in the form.";
             }
         });
     }
@@ -151,7 +162,7 @@ export class Form {
     getFormData() {
         const data = {};
         Object.keys(this.fields).forEach(fieldName => {
-            data[fieldName] = this.fields[fieldName].getValue();
+            data[fieldName] = this.fields[fieldName].value.get();
         });
         return data;
     }

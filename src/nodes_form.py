@@ -49,7 +49,8 @@ class Form(Node):
     def generate(self) -> None:
         form_name = self.children[0].value
         Code.append_html(f'<form id="{form_name}" name="{form_name}">')
-        Code.append_html(f'<h1 id="{form_name}-title"></h1>')
+        Code.append_html(f'<h1 id="{form_name}-title">\'{form_name}\' Form</h1>')
+        Code.append_html(f'<span id="{form_name}-display"></span>')
         onSubmit = "onSubmit: () => {{}}"
         childs = self.children[1].generate()
         for child in childs:
@@ -62,6 +63,7 @@ class Form(Node):
         form_statement = re.sub(fr"#({form_name}\.)?", lambda m: "" if m.group(1) else f"{form_name}.", form_statement)
         Code.append_code(form_statement)
         Code.append_html(f'<button type="submit" id="{form_name}-submit">Submit</button>')
+        Code.append_html(f'<span id="{form_name}-submit-display"></span>')
         Code.append_html("</form>")
         
 class FormField(Node):
