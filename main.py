@@ -13,8 +13,9 @@ def run_parser(filename: str, path: str = "./") -> None:
         result = subprocess.run([os.path.join(path, "src", "flex_bison", "parser"), filename], capture_output=True, text=True, check=True)
         print(result.stdout)
     except subprocess.CalledProcessError as e:
-        print("Erro ao executar o comando:")
+        print("Erro ao executar o parser:")
         print(e.stderr)
+        sys.exit(1)
     
 def main() -> None:
     if len(sys.argv) < 2:
