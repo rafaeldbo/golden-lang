@@ -334,7 +334,7 @@ void yyerror(const char *s) {
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
-        fprintf(stderr, "Uso: %s <arquivo_entrada>\n", argv[0]);
+        fprintf(stderr, "use: %s <input_file.form>\n", argv[0]);
         return 1;
     }
 
@@ -342,7 +342,7 @@ int main(int argc, char *argv[]) {
     strcpy(source_filename, argv[1]);
     FILE *source_file = fopen(source_filename, "r");
     if (!source_file) {
-        fprintf(stderr, "Erro ao abrir o arquivo: %s\n", source_filename);
+        fprintf(stderr, "Error opening the source file: %s\n", source_filename);
         return 1;
     }
 
@@ -352,16 +352,16 @@ int main(int argc, char *argv[]) {
     (dot) ? strcpy(dot, ".json") : strcat(output_filename, ".json");
     FILE *output_file = fopen(output_filename, "w");
     if (!output_file) {
-        perror("Erro ao abrir/criar o arquivo de saida da AST");
+        fprintf(stderr, "Error opening/creating the output file for the AST");
         return 1;
     }
 
     yyin = source_file;
 
     if (yyparse() == 0) {
-        printf("Análise sintática concluída com sucesso.\n");
+        printf("Parsing completed successfully.\n");
         save_ast_json(root, output_file); 
-        printf("AST salva em: %s\n", output_filename);
+        printf("AST saved to JSON file: %s\n", output_filename);
         free_ast(root); 
     }
 
