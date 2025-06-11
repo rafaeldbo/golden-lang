@@ -6,12 +6,27 @@ O projeto consiste em uma Linguagem de programação voltada para a construção
 
 A linguagem será estruturada com uma sintaxe simples, mas completa o suficiente para permitir a criação de formulários complexos. A linguagem compiará diretamente para HTML+JS, permitindo que os formulários sejam utilizados em qualquer navegador moderno.
 
-## Compilando Flex e Bison
+## Utilização
+Primeiro é necessário compilar o analisador sintático `Flex e Bison` utilizando os comando:
 ```bash
-flex lexer.l          
-bison -d parser.y     
-gcc -o parser parser.tab.c lex.yy.c -lfl 
-./parser
+# Executando na raiz do respositório
+flex src/flex_bison/lexer.l && mv lex.yy.c src/flex_bison/lex.yy.c
+bison -d src/flex_bison/parser.y -o src/flex_bison/parser.tab.c        
+g++ src/flex_bison/parser.tab.c src/flex_bison/lex.yy.c -o src/flex_bison/parser
+```
+ou
+```bash
+# Executando na pasta src/flex_bison
+flex lexer.l
+bison -d parser.y
+g++ parser.tab.c lex.yy.c -o parser
+```
+Em seguida, já é possível utilizar o compilador da `golden-lang` com o comando:
+```bash
+python3 main.py <filename.form>
+```
+
+**OBS.:** um código de teste está disponível em [exemple.form](./exemple.form)
 
 ## EBNF
 ```ebnf
@@ -27,113 +42,74 @@ BOOLEAN = ( "true" | "false" ) ;
 
 HOUR    = ( ( 0 | 1 ), DIGIT ) | ( 2, ( 0 | ... | 3 ) ) ;
 MINUTE  = ( 0 | ... | 5 ), ( 0 | ... | 9 ) ;
-TIME    = HOUR, ":", MINUTE ;
+TIME    = '"', HOUR, ":", MINUTE, '"' ;
 
 YEAR    = DIGIT, DIGIT, DIGIT, DIGIT ;
 MONTH   = ( 0, ( 1 | ... | 9 ) ) | ( 1, ( 0 | 1 | 2 ) ) ;
 DAY     = ( ( 0 | 1 | 2 ), DIGIT ) | ( 3, ( 0 | 1 ) ) ;
-DATE    = YEAR, "-", MONTH, "-", DAY ;
+DATE    = '"', YEAR, "-", MONTH, "-", DAY, '"';
 
 (* Expressões *)
-BOOLEAN_EXPRESSION = BOOLEAN_TERM, "or", BOOLEAN_TERM ;
-BOOLEAN_TERM       = BOOLEAN_FACTOR, "and", BOOLEAN_FACTOR ;
-BOOLEAN_FACTOR     = EXPRESSION, ( "==" | "!="  | ">" | "<" | ">=" | "<="), EXPRESSION ;
+BOOLEAN_EXPRESSION = BOOLEAN_TERM, "or", BOOLEAN_EXPRESSION ;
+BOOLEAN_TERM       = BOOLEAN_FACTOR, "and", BOOLEAN_TERM ;
+BOOLEAN_FACTOR     = EXPRESSION, ( "==" | "!="  | ">" | "<" | ">=" | "<="), BOOLEAN_FACTOR ;
 
-EXPRESSION = TERM, { ("+" | "-"), TERM } ;
-TERM       = FACTOR, { ("*" | "/"), FACTOR } ;
-FACTOR     = (("+" | "-" | "not" ), FACTOR) | NUMBER | BOOL | STRING | "(", EXPRESSION, ")" | IDENTIFIER ;
+EXPRESSION = TERM, { ("+" | "-"), EXPRESSION } ;
+TERM       = FACTOR, { ("*" | "/"), TERM } ;
+FACTOR     = (
+    ( ( "-" | "not" ), FACTOR ) | 
+    NUMBER | STRING | BOOLEAN | DATE | TIME |
+    ( "(", EXPRESSION, ")" ) |
+    IDENTIFIER |
+    ATTRIBUTE
+) ;
 
 (* Estuturas de Variáveis *)
-TYPE       = ( "Text" | "Number" | "Date" | "Hour" | "bool" ) ;
+TYPE       = ( "String" | "Number" | "Boolean" | "Date" | "Hour" ) ;
 IDENTIFIER = LETTER, { LETTER | DIGIT | "_" } ;
-VARIABLE   = "var", IDENTIFIER, ":", TYPE, [ "=", EXPRESSION ], "\n" ;
-ASSIGNMENT = IDENTIFIER, "=", EXPRESSION ;
+VARIABLE   = TYPE, IDENTIFIER, ":", TYPE, [ "=", BOOLEAN_EXPRESSION ] ;
+ASSIGNMENT = ( IDENTIFIER | ATTRIBUTE ), "=", EXPRESSION ;
+ATTRIBUTE  = IDENTIFIER, ".", { IDENTIFIER, "." }, FIELD_ATTRIBUTE ;
+
+FIELD_ATTRIBUTE = (
+    "value" |
+    "required" |
+    "title" |
+    "description" |
+    "placeholder" |
+    "default" |
+    "options"
+) ;
 
 (* Estruturas de Código *)
-CODE_STATEMENT = ( λ | ASSIGNMENT | IF | LOOP | ), "\n" ;
+CODE_STATEMENT = ( λ | VARIABLE | ASSIGNMENT | IF | LOOP | "cancel" ), "\n" ;
 CODE_BLOCK     = "{", "\n", { CODE_STATEMENT }, "}" ;
 
-IF   = "when", BOOLEAN_EXPRESSION, "then", "{", { CODE_STATEMENT }, "}", [ "else", "{", { CODE_STATEMENT }, "}" ] ;
-LOOP = "while", BOOLEAN_EXPRESSION, "repeat", "{", { CODE_STATEMENT }, "}" ;
+IF      = "if", BOOLEAN_EXPRESSION, "then", CODE_BLOCK, ELSE_IF ;
+ELSE_IF = { "else", "if", BOOLEAN_EXPRESSION, CODE_BLOCK }, [ "else", CODE_BLOCK ]
+LOOP    = "while", BOOLEAN_EXPRESSION, "repeat", CODE_BLOCK ;
 
 (* Funções Básicas *)	
-DISPLAY = "on", "[", IDENTIFIER, "]", "display", "(" STRING, ")" ;
-FORM_RENDER = "render", "(", IDENTIFIER, ")" ;
+DISPLAY = "on", "[", IDENTIFIER, "]", "display", "(", BOOLEAN_EXPRESSION, ")" ;
 
 (* Estruturas de Formulário *)
-FIELD_TYPE = ( TYPE | "Select" | "Checkbox" ) ;
-FIELD      = "Field", IDENTIFIER, ":", FIELD_TYPE, "{", { FIELD_STATEMENT }, "}" ;
+FIELD_TYPE      = ( TYPE | "Select" ) ;
+FIELD           = "Field", IDENTIFIER, FIELD_TYPE, FIELD_BLOCK ;
+FIELD_BLOCK     = "{", "\n" { FIELD_STATEMENT }, "}", "\n" ;
 FIELD_STATEMENT = ( 
     "required" | 
-    ( "placeholder", "=", STRING ) | 
-    ( "title", "=", "STRING" ) |
-    ( "description", "=", STRING ) | 
-    ( "default", "=", ( NUMBER | STRING | BOOLEAN | DATE | TIME ) ) | 
-    ( "options", "=", "[", { STRING }, "]" ) |
-    ( "validator", CODE_BLOCK )  
-), ";" ;
-FORM = "Form", IDENTIFIER , "{" { FIELD }, "}", "\n" ;
+    ( "placeholder", "=", BOOLEAN_EXPRESSION ) | 
+    ( "title", "=", "BOOLEAN_EXPRESSION" ) |
+    ( "description", "=", BOOLEAN_EXPRESSION ) | 
+    ( "default", "=", BOOLEAN_EXPRESSION ) | 
+    ( "options", "=", "[", { BOOLEAN_EXPRESSION }, "]" ) |
+    ( "onChange", CODE_BLOCK )  
+), "\n" ;
+
+FORM           = "Form", IDENTIFIER , FORM_BLOCK ;
+FORM_BLOCK     = "{", "\n" { FORM_STATEMENT }, "}", "\n" ;
+FORM_STATEMENT = ( FIELD | ( "onSubmit", CODE_BLOCK ) ) ;
 
 (* Bloco Inicial *)
-MASTER_BLOCK = { ( CODE_STATEMENT | FORM ) } ;
+ROOT_BLOCK = { ( CODE_STATEMENT | FORM ) } ;
 ```
-
-## Exemplo de Código
-```golden-lang
-Form apresentacao {
-    Field nome String {
-        required
-        placeholder = "Digite seu nome"
-        title = "Nome"
-        description = "Digite seu nome completo"
-    }
-    Field idade Number {
-        required
-        placeholder = "Digite sua idade"
-        title = "Idade"
-        description = "Digite sua idade em anos"
-    }
-    Field genero Select {
-        required
-        placeholder = "Selecione seu gênero"
-        title = "Gênero"
-        description = "Selecione seu gênero"
-        options = [
-            "Masculino", 
-            "Feminino", 
-            "Outro"
-        ]
-    }
-    Field data_nascimento Date {
-        required
-        placeholder = "Digite sua data de nascimento"
-        title = "Data de Nascimento"
-        description = "Qual é sua data de nascimento? Responda no formato YYYY-MM-DD"
-    }
-    Field hora_almoco Time {
-        required
-        placeholder = "Digite a sua hora de almoço"
-        title = "Hora do almoço"
-        description = "A que horas você costuma almoçar? Responda no formato: HH:MM"
-    }
-    Field curiosidade String {
-        placeholder = "Digite uma curiosidade sobre você"
-        title = "Curiosidade"
-        description = "Fale uma coisa interessante sobre você, algo que ninguém sabe!"
-    }
-    validator {
-        if (idade < 0) then {
-            on[PAGE]display("idade inválida")
-            cancel
-        } else if (hora_almoco < "07:00" or hora_almoco > "18:00") then {
-            on[PAGE]display("hora de almoço inválida")
-            cancel
-        } else if (data_nascimento < "1900-01-01") then {
-            on[PAGE]display("data de nascimento inválida")
-            cancel
-        } else {
-            on[PAGE]display("prazer em conhece-lo(a) " + nome)
-            submit
-        }
-    }
-}
