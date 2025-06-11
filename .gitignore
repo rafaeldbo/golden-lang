@@ -3,5 +3,6 @@ parser.tab.c
 parser.tab.h
 parser
 sandbox.*
+exemple/
 
 __pycache__
