@@ -1,76 +1,39 @@
-import json, sys
+import sys, os, subprocess
 
-from preprocessor import PreProcessor
-from node import Node, SymbolTable
-from code_generator import Code
-from nodes_basic import RootBlock, Block, Identifier, Variable, Assignment, BinOp, UnOp, IfOp, WhileOp
-from nodes_basic import NumberValue, StringValue, BooleanValue, DateValue, TimeValue, ListValue, Attribute, AttributeAccess, AttributeAssignment
-from nodes_form import Display, ObjectBlock, Form, FormField, FormOnSubmit, FieldOnChange
-from nodes_form import FieldRequiredParam, FieldTitleParam, FieldDescriptionParam, FieldPlaceholderParam, FieldOptionsParam, FieldDefaultParam, CancelOp
+from src.ast_read import read_AST
+from src.preprocessor import PreProcessor
+from src.node import SymbolTable
+from src.code_generator import Code
 
-
-NODES = {
-    "root": RootBlock,
-    "block": Block,
-    "identifier": Identifier,
-    "variable": Variable,
-    "assignment": Assignment,
-    "bin_op": BinOp,
-    "un_op": UnOp,
-    "if": IfOp,
-    "while": WhileOp,
-    "display": Display,
+PATH = os.path.join(os.path.dirname(__file__))
     
-    "number": NumberValue,
-    "string": StringValue,
-    "boolean": BooleanValue,
-    "date": DateValue,
-    "time": TimeValue,
-    "list": ListValue,
-    
-    "attribute": Attribute,
-    "attribute_access": AttributeAccess,
-    "attribute_assignment": AttributeAssignment,
-    
-    "object": ObjectBlock,
-    "form": Form,
-    "field": FormField,
-    "form_onSubmit": FormOnSubmit,
-    "required": FieldRequiredParam,
-    "title": FieldTitleParam,
-    "description": FieldDescriptionParam,
-    "placeholder": FieldPlaceholderParam,
-    "options": FieldOptionsParam,
-    "default": FieldDefaultParam,
-    "field_onChange": FieldOnChange,
-    "cancel": CancelOp,
-}
-
-def load_AST(data: dict) -> Node:
-    children = [load_AST(child) for child in data.get("children", [])]
+def run_parser(filename: str, path: str = "./") -> None:
+    """Executa parser flex+bison para gerar o AST a partir do arquivo .form."""
     try:
-        node = NODES[data["type"]]
-        return node(data.get("value", None), *children)
-    except Exception as e:
-        print(f"Error loading node: {node} with data: {data}")
-        raise e
-
+        result = subprocess.run([os.path.join(path, "src", "flex_bison", "parser"), filename], capture_output=True, text=True, check=True)
+        print(result.stdout)
+    except subprocess.CalledProcessError as e:
+        print("Erro ao executar o comando:")
+        print(e.stderr)
     
 def main() -> None:
     if len(sys.argv) < 2:
-        print("Usage: python main.py <AST_file.json>")
+        print("Usage: python main.py <exemple.form>")
         return
     
-    filename = sys.argv[1]
     
-    ASTdata = json.load(open(filename, "r"))
-    AST = load_AST(ASTdata)
+    form_filename = sys.argv[1]
+    run_parser(form_filename, PATH)
+    filename = os.path.splitext(form_filename)[0]
+    ast_filename = filename+".json"
+    
+    AST = read_AST(ast_filename)
     st = SymbolTable(name="root")
     PreProcessor.preprocess(st)
     AST.evaluate(st)
     # print(st)
     AST.generate()
-    Code.dump("teste")
+    Code.dump(filename)
     
 if __name__ == "__main__":
     main()

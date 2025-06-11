@@ -1,7 +1,7 @@
 import json
 from typing import Dict
 
-from symbol_types import Symbol
+from .symbol_types import Symbol
 
 def serialize_SymbolTable(st: 'SymbolTable') -> Dict:
     serialized = {key: symbol for key, symbol in st.table.items() if key != "__childs__"} 

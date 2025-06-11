@@ -1,5 +1,5 @@
-from typing import List, Dict
-import os, re
+from typing import List
+import os, shutil, re
 
 JS_BASE = """import {{ Form, FormField, display, DateWrapper, TimeWrapper }} from './form.js';
 
@@ -17,9 +17,6 @@ HTML_BASE = """ <!-- Generated HTML for {filename}.form -->
     <base href="./">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{filename}</title>
-    <link rel="preconnect" href="https://fonts.gstatic.com" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/meyer-reset/2.0/reset.min.css" integrity="sha512-NmLkDIU1C/C88wi324HBc+S2kLhi08PN5GDeUVVVC/BVt/9Izdsc9SVeVfA1UZbY3sHUlDSyRXhCzHfr6hmPPw==" crossorigin="anonymous" />
     <link rel="stylesheet" href="./style.css">
 </head>
@@ -65,9 +62,11 @@ class Code:
             Code.inline_code_instructions.clear()
         return code
     
-    def dump(filename: str) -> None:
-        os.makedirs(filename, exist_ok=True)
-        with open(os.path.join(filename, "script.js"), 'w') as js, open(os.path.join(filename, "index.html"), 'w') as html:
+    def dump(filename: str, path:str="./") -> None:
+        template_path = os.path.join(path, 'src', 'template')
+        build_path = os.path.join(path, filename)
+        os.makedirs(build_path, exist_ok=True)
+        with open(os.path.join(build_path, "script.js"), 'w') as js, open(os.path.join(build_path, "index.html"), 'w') as html:
             name = filename.split("/")[-1]
             
             code = Code.dump_code(Code.code_instructions).replace("#", "")
@@ -75,6 +74,11 @@ class Code:
 
             body = "\n".join(Code.html_elements)
             html.write(HTML_BASE.format(filename=name, body=body))
+        shutil.copy(os.path.join(template_path, "style.css"), os.path.join(build_path, "style.css"))
+        shutil.copy(os.path.join(template_path, "form.js"), os.path.join(build_path, "form.js"))
+        print(f"Code generated successfully in: {filename}/")
+        print(f"To view the form run a local server in the folder: {filename}/")
+        print(f"e.g. python3 -m http.server -d {filename}/")
             
     def dump_code(code_instructions: List[str]) -> str:
         code = ""

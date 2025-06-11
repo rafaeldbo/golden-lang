@@ -1,0 +1,78 @@
+Date hoje = "2025-06-10"
+Number idade = 0
+
+Form apresentacao {
+    onSubmit {
+        on[PAGE]display("prazer em conhece-lo(a) " + nome.value)
+    }
+    Field nome String {
+        required
+        placeholder = "Digite seu nome"
+        title = "Nome"
+        description = "Digite seu nome completo"
+    }
+    Field idade Number {
+        required
+        placeholder = "Digite sua idade"
+        title = "Idade"
+        description = "Digite sua idade em anos"
+        onChange {
+            if (idade.value < 0 or idade.value > 100) then {
+                on[idade]display("Idade inválida")
+                cancel
+            } else {
+                on[PAGE]display("Você tem " + idade.value + " anos")
+            }
+        }
+    }
+    Field genero Select {
+        required
+        placeholder = "Selecione seu gênero"
+        title = "Gênero"
+        description = "Selecione seu gênero"
+        options = [
+            "Masculino", 
+            "Feminino", 
+            "Outro"
+        ]
+    }
+    Field data_nascimento Date {
+        required
+        default = hoje
+        placeholder = "Digite sua data de nascimento"
+        title = "Data de Nascimento"
+        description = "Qual é sua data de nascimento? Responda no formato YYYY-MM-DD"
+        onChange {
+            if (data_nascimento.value < "1900-01-01") then {
+                on[data_nascimento]display("Data de nascimento inválida")
+                cancel
+            } else {
+                idade = (hoje - data_nascimento.value) / 365
+                if (idade != idade.value) then {
+                    on[idade]display("Idade calculada: " + idade)
+                } else {
+                    on[idade]display("Idade: " + idade.value)
+                }
+            }
+            idade = hoje - data_nascimento.value
+        }   
+    }
+    Field hora_almoco Time {
+        required
+        placeholder = "Digite a sua hora de almoço"
+        title = "Hora do almoço"
+        description = "A que horas você costuma almoçar? Responda no formato: HH:MM"
+        default = "12:00"
+        onChange {
+            if (hora_almoco.value < "07:00" or hora_almoco.value > "18:00") then {
+                on[hora_almoco]display("Hora de almoço inválida")
+                cancel
+            }
+        }
+    }
+    Field curiosidade String {
+        placeholder = "Digite uma curiosidade sobre você"
+        title = "Curiosidade"
+        description = "Fale uma coisa interessante sobre você, algo que ninguém sabe!"
+    }
+}

@@ -1,4 +1,4 @@
-from symbol_table import SymbolTable, Symbol
+from .symbol_table import SymbolTable, Symbol
 
 class PreProcessor:
     def preprocess(st: SymbolTable) -> None:

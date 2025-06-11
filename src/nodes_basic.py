@@ -1,10 +1,10 @@
 from typing import List, Tuple
 
-from node import Node, EvaluationException
-from code_generator import Code
+from .node import Node, EvaluationException
+from .code_generator import Code
 
-from symbol_table import SymbolTable
-from symbol_types import Symbol, Date, Time, NUMBER, STRING, BOOLEAN, LIST, DATE, TIME, OBJECT
+from .symbol_table import SymbolTable
+from .symbol_types import Symbol, Date, Time, NUMBER, STRING, BOOLEAN, LIST, DATE, TIME, OBJECT
 
 
 class NoOp(Node):

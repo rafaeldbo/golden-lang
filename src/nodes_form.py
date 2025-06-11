@@ -1,11 +1,11 @@
 from typing import List, Tuple
 import re
 
-from code_generator import Code
-from node import Node, EvaluationException
+from .code_generator import Code
+from .node import Node, EvaluationException
 
-from symbol_table import SymbolTable
-from symbol_types import Symbol, DEFAULT_VALUE, STRING, BOOLEAN, LIST
+from .symbol_table import SymbolTable
+from .symbol_types import Symbol, DEFAULT_VALUE, STRING, BOOLEAN, LIST
 
 class Display(Node):
     def __init__(self, void, identifier:Node, printable_expression:Node):

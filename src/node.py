@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Union, Tuple, List
 
-from symbol_table import SymbolTable, Symbol
+from .symbol_table import SymbolTable, Symbol
 
 class EvaluationException(Exception):
     pass
