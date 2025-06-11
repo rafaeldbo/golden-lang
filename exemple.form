@@ -25,7 +25,7 @@ Form apresentacao {
                 on[idade]display("Idade inválida")
                 cancel
             } else {
-                on[PAGE]display("Você tem " + idade.value + " anos")
+                on[idade]display("")
             }
         }
     }
@@ -47,6 +47,7 @@ Form apresentacao {
                 } else {
                     on[idade]display("Idade: " + idade.value)
                 }
+                on[data_nascimento]display("")
             }
         }
     }
@@ -77,6 +78,8 @@ Form apresentacao {
             if (horario_compromisso.value < "06:00" or horario_compromisso.value > "22:00") then {
                 on[horario_compromisso]display("Horário fora do intervalo permitido")
                 cancel
+            } else {
+                on[horario_compromisso]display("")
             }
         }
     }
